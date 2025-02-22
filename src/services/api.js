@@ -15,7 +15,8 @@ const getAccessToken = async () => {
   
   try {
     // Configuration pour le flux Client Credentials d'OAuth 2.0
-    const tokenUrl = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire';
+    // Utilisation du chemin relatif pour éviter les problèmes CORS
+    const tokenUrl = '/connexion/oauth2/access_token?realm=%2Fpartenaire';
     
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
@@ -41,7 +42,8 @@ const getAccessToken = async () => {
   }
 };
 
-// Création d'une instance Axios avec la configuration de base
+// Création d'une instance Axios avec la configuration de base pour les offres d'emploi
+// Notez qu'on utilise l'URL complète ici car c'est un domaine différent de celui de l'authentification
 const api = axios.create({
   baseURL: 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres',
   headers: {
