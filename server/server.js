@@ -10,8 +10,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configuration des middlewares
-app.use(cors());
+// Configuration avancée de CORS pour résoudre les problèmes de cross-origin
+app.use(cors({
+  origin: 'http://localhost:3000', // URL exacte du frontend
+  credentials: true,               // Autorise les cookies et l'authentification
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
