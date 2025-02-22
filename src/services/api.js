@@ -2,18 +2,53 @@ import axios from 'axios';
 
 // Création d'une instance Axios avec la configuration de base
 const api = axios.create({
-  // Utilisation du serveur proxy local au lieu de l'API directe
-  baseURL: 'http://localhost:5000',
+  baseURL: 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
+    // Ne pas mettre l'Authorization ici pour éviter qu'il soit inclus dans toutes les requêtes
   },
-  // Limites pour éviter les erreurs
-  maxContentLength: 1 * 1024 * 1024, // 1 MB
-  maxBodyLength: 1 * 1024 * 1024, // 1 MB
-  maxRedirects: 3,
-  timeout: 10000, // 10 secondes
+  // Limites strictes pour éviter les erreurs 431
+  maxContentLength: 2 * 1024 * 1024, // 2 MB
+  maxBodyLength: 2 * 1024 * 1024, // 2 MB
+  maxRedirects: 3, 
+  timeout: 10000 // 10 secondes
 });
+
+// Intercepteur de requête ultra-minimaliste
+api.interceptors.request.use(
+  async config => {
+    const token = process.env.REACT_APP_API_TOKEN;
+    
+    // Simplification radicale des en-têtes
+    config.headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
+    };
+    
+    // Limiter strictement la taille des paramètres
+    if (config.params) {
+      Object.keys(config.params).forEach(key => {
+        if (typeof config.params[key] === 'string' && config.params[key].length > 25) {
+          config.params[key] = config.params[key].substring(0, 25);
+        }
+      });
+      
+      // Limiter le nombre de paramètres
+      const allowedParams = ['motsCles', 'commune', 'distance', 'experience', 'typeContrat', 'sort', 'range', 'publieeDepuis'];
+      Object.keys(config.params).forEach(key => {
+        if (!allowedParams.includes(key)) {
+          delete config.params[key];
+        }
+      });
+    }
+    
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Intercepteur pour gérer les erreurs de manière globale
 api.interceptors.response.use(
@@ -45,7 +80,7 @@ api.interceptors.response.use(
           error.message = 'Trop de requêtes. Veuillez réessayer plus tard.';
           break;
         case 431:
-          error.message = 'Erreur 431: Requête trop volumineuse. Simplifiez votre recherche.';
+          error.message = 'Erreur 431: Request Header Fields Too Large';
           break;
         case 500:
           error.message = 'Erreur serveur. Veuillez réessayer plus tard.';
@@ -62,9 +97,9 @@ api.interceptors.response.use(
   }
 );
 
-// Service pour la recherche d'offres d'emploi
+// Service ultra-simplifié pour la recherche d'offres d'emploi
 export const searchJobs = async (params) => {
-  // Extraction des paramètres de recherche et limitation de leur taille
+  // Extraction des paramètres de recherche
   const {
     keywords,
     location,
@@ -73,40 +108,34 @@ export const searchJobs = async (params) => {
     contractType,
   } = params;
   
-  // Construire les paramètres de requête pour l'API avec des limites strictes
+  // Construire les paramètres minimalistes
   const queryParams = {
-    // Limiter la taille des mots-clés pour éviter les erreurs 431
-    keywords: keywords ? keywords.substring(0, 30) : 'dev',
+    motsCles: keywords ? keywords.substring(0, 20) : 'dev',
+    sort: 1,
+    range: '0-5', // Très peu de résultats
+    publieeDepuis: 31
   };
   
-  // Ajouter les paramètres conditionnels avec limitation de taille
-  if (location) {
-    queryParams.location = location.substring(0, 30);
-    
-    if (distance) {
-      queryParams.distance = distance;
-    }
+  // Ajouter les paramètres essentiels uniquement
+  if (location && location.trim()) {
+    queryParams.commune = location.substring(0, 20);
   }
   
-  // Ajouter l'expérience si spécifiée
-  if (experience) {
+  if (experience && experience.trim()) {
     queryParams.experience = experience;
   }
   
-  // Ajouter le type de contrat si spécifié
-  if (contractType) {
-    queryParams.contractType = contractType;
+  if (contractType && contractType.trim()) {
+    queryParams.typeContrat = contractType;
   }
   
+  // Pas d'autres paramètres!
+  
   try {
-    // Utiliser notre point d'entrée API simplifié
-    const response = await api.get('/api', { 
+    // Méthode HTTP simple
+    const response = await api.get('/search', { 
       params: queryParams,
-      // Minimiser les en-têtes
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+      // Aucun en-tête supplémentaire
     });
     return response.data;
   } catch (error) {
@@ -115,15 +144,14 @@ export const searchJobs = async (params) => {
   }
 };
 
-// Service pour récupérer une offre d'emploi par son ID
+// Service simplifié pour récupérer une offre d'emploi par son ID
 export const getJobById = async (jobId) => {
   if (!jobId) {
     throw new Error('ID de l\'offre d\'emploi requis');
   }
   
   try {
-    // Utiliser le serveur proxy
-    const response = await api.get(`/api/jobs/${jobId}`);
+    const response = await api.get(`/${jobId}`);
     return response.data;
   } catch (error) {
     throw error;
