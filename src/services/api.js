@@ -178,9 +178,10 @@ export const searchJobs = async (params) => {
     publieeDepuis: 31
   };
   
-  // Ajouter les paramètres de base
+  // Ajouter le code INSEE de commune (location représente maintenant le code INSEE)
   if (location && location.trim()) {
-    queryParams.commune = location.substring(0, 20);
+    queryParams.commune = location.trim();
+    console.log('Recherche avec code INSEE de commune:', location);
   }
   
   if (distance) {
