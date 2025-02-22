@@ -9,6 +9,7 @@ Application React personnalisée pour la recherche d'offres d'emploi de dévelop
 - Interface utilisateur moderne et réactive
 - Visualisation des résultats avec des informations détaillées
 - Authentification OAuth 2.0 avec le flux "Client Credentials"
+- Contournement des problèmes CORS grâce à un proxy de développement
 
 ## Prérequis
 
@@ -50,6 +51,22 @@ npm start
 
 L'application sera disponible à l'adresse [http://localhost:3000](http://localhost:3000)
 
+## Proxy CORS
+
+Cette application utilise un proxy de développement pour éviter les problèmes CORS lors de l'appel à l'API d'authentification OAuth. Ce proxy est configuré dans le fichier `package.json` :
+
+```json
+{
+  "proxy": "https://entreprise.francetravail.fr"
+}
+```
+
+Cela permet aux requêtes d'authentification d'être acheminées via le serveur de développement de React, contournant ainsi les restrictions CORS du navigateur. **Cette configuration fonctionne uniquement en développement**.
+
+Pour la production, vous devrez :
+- Soit configurer votre serveur de production pour faire office de proxy
+- Soit mettre en place un véritable serveur backend qui gère l'authentification OAuth
+
 ## Obtenir des identifiants OAuth 2.0
 
 Pour obtenir un Client ID et un Client Secret pour l'API France Travail :
@@ -78,6 +95,15 @@ Cette erreur se produit lorsque les en-têtes HTTP dépassent la taille maximale
    - Les cookies peuvent augmenter la taille des en-têtes HTTP
    - Essayez d'utiliser une fenêtre de navigation privée pour réduire les cookies
 
+### Problèmes CORS
+
+Si vous rencontrez toujours des erreurs CORS malgré le proxy :
+
+1. Vérifiez que vous utilisez bien des chemins relatifs pour les appels d'authentification
+2. Redémarrez le serveur de développement (`npm start`)
+3. Effacez le cache de votre navigateur
+4. Assurez-vous que le proxy est correctement configuré dans `package.json`
+
 ### Problèmes d'authentification OAuth 2.0
 
 Si vous rencontrez des erreurs d'authentification (401, 403) :
@@ -90,10 +116,6 @@ Si vous rencontrez des erreurs d'authentification (401, 403) :
    - Confirmez que vous avez bien souscrit à l'API "Offres d'emploi v2"
    - Vérifiez que le scope demandé correspond à "api_offresdemploiv2"
 
-3. **Consultez les logs de l'application**
-   - L'application enregistre les erreurs d'authentification dans la console
-   - Utilisez les outils de développement de votre navigateur pour les consulter
-
 ## Technologies utilisées
 
 - React 18
@@ -102,22 +124,4 @@ Si vous rencontrez des erreurs d'authentification (401, 403) :
 - React Router pour la navigation
 - React Query pour la gestion des données
 - OAuth 2.0 pour l'authentification sécurisée
-
-## Optimisations
-
-Cette application a été optimisée pour éviter les erreurs 431 :
-
-- Limitations strictes sur la taille des paramètres de recherche
-- Réduction du nombre de compétences sélectionnables à 2 maximum
-- Simplification des en-têtes HTTP
-- Réduction du nombre de résultats pour alléger les réponses
-- Gestion du cache des tokens OAuth 2.0
-
-## Limites connues
-
-En raison des optimisations pour éviter l'erreur 431 :
-
-- Le nombre de résultats est limité à 5 à la fois
-- Les termes de recherche sont limités à 20 caractères
-- Seulement 2 compétences peuvent être sélectionnées simultanément
-- Certaines fonctionnalités avancées de l'API peuvent ne pas être accessibles
+- Proxy CORS pour le développement
