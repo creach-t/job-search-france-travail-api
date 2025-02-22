@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { API, DEFAULTS } from '../utils/constants';
+import { API, DEFAULTS, STORAGE_KEYS } from '../utils/constants';
 
 /**
- * Client API configuré pour les requêtes vers France Travail
+ * Client API configuré pour communiquer avec le serveur intermédiaire
  */
 const apiClient = axios.create({
-  baseURL: '',
+  baseURL: API.BASE_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -13,40 +13,59 @@ const apiClient = axios.create({
 });
 
 /**
- * Transforme les paramètres de recherche pour l'API France Travail
+ * Intercepteur pour ajouter le token d'authentification aux requêtes
+ */
+apiClient.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => Promise.reject(error)
+);
+
+/**
+ * Fonction pour authentifier l'application auprès de l'API France Travail
+ * @returns {Promise<string>} - Token d'authentification
+ */
+export const authenticate = async () => {
+  try {
+    const response = await apiClient.post(API.ENDPOINTS.AUTH);
+    const { token } = response.data;
+    
+    // Stocker le token dans le localStorage
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+    
+    return token;
+  } catch (error) {
+    console.error('Erreur d\'authentification:', error.response || error);
+    throw new Error(
+      error.response?.data?.message || 
+      'Impossible de s\'authentifier. Veuillez réessayer.'
+    );
+  }
+};
+
+/**
+ * Transforme les paramètres de recherche pour l'API
  * @param {Object} params - Paramètres de recherche
  * @returns {Object} - Paramètres formatés pour l'API
  */
 const buildSearchParams = (params) => {
   const { keywords, location, distance, experience, contractType, qualification, workingHours } = params;
   
-  // Paramètres obligatoires
-  const apiParams = {
-    motsCles: keywords || DEFAULTS.DEFAULT_KEYWORDS,
+  return {
+    keywords: keywords || DEFAULTS.DEFAULT_KEYWORDS,
+    location: location || undefined,
     distance: distance || DEFAULTS.DEFAULT_DISTANCE,
-    origineOffre: 1, // 1 = France Travail
-    minCreationDate: "now-1M", // Offres créées dans le dernier mois
-    maxCreationDate: "now", // Jusqu'à maintenant
-    domaine: 'M18', // Domaine informatique (code M18 de France Travail)
-    typeContrat: contractType || undefined,
-    qualification: qualification || undefined,
-    natureContrat: workingHours || undefined,
     experience: experience || undefined,
-    codeROME: [
-      "M1805", // Études et développement informatique
-      "M1810", // Production et exploitation de systèmes d'information
-      "M1802" // Expertise et support en systèmes d'information
-    ],
-    sort: 0, // Tri par pertinence (0) ou date (1)
-    range: `0-${DEFAULTS.SEARCH_LIMIT - 1}`, // Pagination
+    contractType: contractType || undefined,
+    qualification: qualification || undefined,
+    workingHours: workingHours || undefined,
+    limit: DEFAULTS.SEARCH_LIMIT
   };
-  
-  // Ajout de la localisation si disponible
-  if (location) {
-    apiParams.commune = location;
-  }
-  
-  return apiParams;
 };
 
 /**
@@ -60,10 +79,28 @@ export const searchJobs = async (params) => {
   }
   
   try {
+    // Vérifier si un token existe, sinon s'authentifier
+    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) {
+      await authenticate();
+    }
+    
     const searchParams = buildSearchParams(params);
-    const response = await apiClient.post(API.FRANCE_TRAVAIL.SEARCH, searchParams);
+    const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
     return response.data;
   } catch (error) {
+    // Si erreur 401 (Unauthorized), tenter de ré-authentifier et réessayer
+    if (error.response && error.response.status === 401) {
+      try {
+        await authenticate();
+        const searchParams = buildSearchParams(params);
+        const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
+        return response.data;
+      } catch (retryError) {
+        console.error('Erreur lors de la tentative de ré-authentification:', retryError);
+        throw new Error('Session expirée. Veuillez rafraîchir la page et réessayer.');
+      }
+    }
+    
     console.error('Erreur lors de la recherche d\'emplois:', error.response || error);
     throw new Error(
       error.response?.data?.message || 
@@ -83,9 +120,26 @@ export const getJobById = async (id) => {
   }
   
   try {
-    const response = await apiClient.get(`${API.FRANCE_TRAVAIL.JOB_DETAILS}/${id}`);
+    // Vérifier si un token existe, sinon s'authentifier
+    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) {
+      await authenticate();
+    }
+    
+    const response = await apiClient.get(`${API.ENDPOINTS.JOB_DETAILS}/${id}`);
     return response.data;
   } catch (error) {
+    // Si erreur 401 (Unauthorized), tenter de ré-authentifier et réessayer
+    if (error.response && error.response.status === 401) {
+      try {
+        await authenticate();
+        const response = await apiClient.get(`${API.ENDPOINTS.JOB_DETAILS}/${id}`);
+        return response.data;
+      } catch (retryError) {
+        console.error('Erreur lors de la tentative de ré-authentification:', retryError);
+        throw new Error('Session expirée. Veuillez rafraîchir la page et réessayer.');
+      }
+    }
+    
     console.error(`Erreur lors de la récupération de l'offre ID ${id}:`, error.response || error);
     throw new Error(
       error.response?.data?.message || 
@@ -94,7 +148,11 @@ export const getJobById = async (id) => {
   }
 };
 
-export default {
+// Service API exporté
+const apiService = {
+  authenticate,
   searchJobs,
   getJobById
 };
+
+export default apiService;
