@@ -2,49 +2,18 @@ import axios from 'axios';
 
 // Création d'une instance Axios avec la configuration de base
 const api = axios.create({
-  baseURL: 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres',
+  // Utilisation du serveur proxy local au lieu de l'API directe
+  baseURL: 'http://localhost:5000',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-    // Ne pas mettre l'Authorization ici pour éviter qu'il soit inclus dans toutes les requêtes
   },
-  // Ajouter des limites pour éviter les erreurs 431
-  maxContentLength: 10 * 1024 * 1024, // 10 MB
-  maxBodyLength: 10 * 1024 * 1024, // 10 MB
-  maxRedirects: 5,
-  timeout: 30000, // 30 secondes
+  // Limites pour éviter les erreurs
+  maxContentLength: 1 * 1024 * 1024, // 1 MB
+  maxBodyLength: 1 * 1024 * 1024, // 1 MB
+  maxRedirects: 3,
+  timeout: 10000, // 10 secondes
 });
-
-// Intercepteur de requête pour ajouter l'en-tête d'autorisation
-api.interceptors.request.use(
-  async config => {
-    const token = process.env.REACT_APP_API_TOKEN;
-    // Ne mettre que les headers essentiels, minimiser les données
-    config.headers['Authorization'] = `Bearer ${token}`;
-    
-    // Supprimer les headers non nécessaires s'ils existent
-    const unnecessaryHeaders = ['X-Client-Version', 'X-Client-Id', 'X-Application-Id', 'X-Platform', 'X-Client-Build', 'X-Device-Id'];
-    unnecessaryHeaders.forEach(header => {
-      if (config.headers[header]) {
-        delete config.headers[header];
-      }
-    });
-    
-    // Limiter la taille des params dans l'URL
-    if (config.params) {
-      Object.keys(config.params).forEach(key => {
-        if (typeof config.params[key] === 'string' && config.params[key].length > 100) {
-          config.params[key] = config.params[key].substring(0, 100);
-        }
-      });
-    }
-    
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-);
 
 // Intercepteur pour gérer les erreurs de manière globale
 api.interceptors.response.use(
@@ -76,7 +45,7 @@ api.interceptors.response.use(
           error.message = 'Trop de requêtes. Veuillez réessayer plus tard.';
           break;
         case 431:
-          error.message = 'Erreur 431: Request Header Fields Too Large';
+          error.message = 'Erreur 431: Requête trop volumineuse. Simplifiez votre recherche.';
           break;
         case 500:
           error.message = 'Erreur serveur. Veuillez réessayer plus tard.';
@@ -104,21 +73,18 @@ export const searchJobs = async (params) => {
     contractType,
   } = params;
   
-  // Construire les paramètres de requête pour l'API avec des limites de taille strictes
+  // Construire les paramètres de requête pour l'API avec des limites strictes
   const queryParams = {
     // Limiter la taille des mots-clés pour éviter les erreurs 431
-    motsCles: keywords ? keywords.substring(0, 50) : 'développeur', // Réduit de 200 à 50 caractères
-    sort: 1,
-    range: '0-9', // Réduit le nombre de résultats pour alléger la requête (de 0-19 à 0-9)
-    publieeDepuis: 31
+    keywords: keywords ? keywords.substring(0, 30) : 'dev',
   };
   
   // Ajouter les paramètres conditionnels avec limitation de taille
   if (location) {
-    queryParams.commune = location.substring(0, 50); // Réduit de 100 à 50 caractères
+    queryParams.location = location.substring(0, 30);
     
     if (distance) {
-      queryParams.distance = parseInt(distance) || 10;
+      queryParams.distance = distance;
     }
   }
   
@@ -129,19 +95,17 @@ export const searchJobs = async (params) => {
   
   // Ajouter le type de contrat si spécifié
   if (contractType) {
-    queryParams.typeContrat = contractType;
+    queryParams.contractType = contractType;
   }
   
   try {
-    // Utiliser une méthode HTTP plus courte (GET au lieu de longues URL complexes)
-    const response = await api.get('/search', { 
+    // Utiliser notre point d'entrée API simplifié
+    const response = await api.get('/api', { 
       params: queryParams,
-      // Personnaliser les headers pour cette requête spécifique
+      // Minimiser les en-têtes
       headers: {
-        // Limiter les headers au strict minimum
         'Accept': 'application/json',
         'Content-Type': 'application/json'
-        // Authorization sera ajouté par l'intercepteur
       }
     });
     return response.data;
@@ -158,7 +122,8 @@ export const getJobById = async (jobId) => {
   }
   
   try {
-    const response = await api.get(`/${jobId}`);
+    // Utiliser le serveur proxy
+    const response = await api.get(`/api/jobs/${jobId}`);
     return response.data;
   } catch (error) {
     throw error;
