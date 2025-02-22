@@ -1,11 +1,11 @@
 import axios from 'axios';
 
 // Création d'une instance Axios avec la configuration de base
-// Notez que nous n'avons plus besoin de spécifier l'URL complète ou les headers d'authentification
-// car nous utilisons notre propre proxy qui s'en charge
 const api = axios.create({
+  baseURL: 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres',
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
   // Ajouter des limites pour éviter les erreurs 431
   maxContentLength: 10 * 1024 * 1024, // 10 MB
@@ -13,6 +13,18 @@ const api = axios.create({
   maxRedirects: 5,
   timeout: 30000, // 30 secondes
 });
+
+// Intercepteur de requête pour ajouter l'en-tête d'autorisation
+api.interceptors.request.use(
+  async config => {
+    const token = "YOUR_API_TOKEN"; // Remplacez par votre token d'API
+    config.headers['Authorization'] = `Bearer ${token}`;
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Intercepteur pour gérer les erreurs de manière globale
 api.interceptors.response.use(
@@ -72,15 +84,18 @@ export const searchJobs = async (params) => {
     contractType,
   } = params;
   
-  // Construire les paramètres de requête pour notre API proxy avec des limites de taille
+  // Construire les paramètres de requête pour l'API avec des limites de taille
   const queryParams = {
     // Limiter la taille des mots-clés pour éviter les erreurs 431
-    keywords: keywords ? keywords.substring(0, 200) : 'développeur web',
+    motsCles: keywords ? keywords.substring(0, 200) : 'développeur web',
+    sort: 1,
+    range: '0-19', // Réduire le nombre de résultats pour alléger la requête
+    publieeDepuis: 31
   };
   
   // Ajouter les paramètres conditionnels avec limitation de taille
   if (location) {
-    queryParams.location = location.substring(0, 100);
+    queryParams.commune = location.substring(0, 100);
     
     if (distance) {
       queryParams.distance = distance;
@@ -94,12 +109,11 @@ export const searchJobs = async (params) => {
   
   // Ajouter le type de contrat si spécifié
   if (contractType) {
-    queryParams.contractType = contractType;
+    queryParams.typeContrat = contractType;
   }
   
   try {
-    // Notez que nous appelons maintenant notre serveur proxy plutôt que l'API directement
-    const response = await api.get('/api/jobs', { params: queryParams });
+    const response = await api.get('/search', { params: queryParams });
     return response.data;
   } catch (error) {
     console.error('Erreur lors de la recherche:', error.message);
@@ -114,8 +128,7 @@ export const getJobById = async (jobId) => {
   }
   
   try {
-    // Notez que nous appelons maintenant notre serveur proxy plutôt que l'API directement
-    const response = await api.get(`/api/jobs/${jobId}`);
+    const response = await api.get(`/${jobId}`);
     return response.data;
   } catch (error) {
     throw error;
