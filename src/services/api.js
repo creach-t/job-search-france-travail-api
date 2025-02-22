@@ -7,6 +7,11 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Ajouter des limites pour éviter les erreurs 431
+  maxContentLength: 10 * 1024 * 1024, // 10 MB
+  maxBodyLength: 10 * 1024 * 1024, // 10 MB
+  maxRedirects: 5,
+  timeout: 30000, // 30 secondes
 });
 
 // Intercepteur pour gérer les erreurs de manière globale
@@ -38,6 +43,9 @@ api.interceptors.response.use(
         case 429:
           error.message = 'Trop de requêtes. Veuillez réessayer plus tard.';
           break;
+        case 431:
+          error.message = 'Erreur 431: Request Header Fields Too Large';
+          break;
         case 500:
           error.message = 'Erreur serveur. Veuillez réessayer plus tard.';
           break;
@@ -55,6 +63,7 @@ api.interceptors.response.use(
 
 // Service pour la recherche d'offres d'emploi
 export const searchJobs = async (params) => {
+  // Extraction des paramètres de recherche et limitation de leur taille
   const {
     keywords,
     location,
@@ -63,16 +72,15 @@ export const searchJobs = async (params) => {
     contractType,
   } = params;
   
-  // Construire les paramètres de requête pour notre API proxy
+  // Construire les paramètres de requête pour notre API proxy avec des limites de taille
   const queryParams = {
-    keywords: keywords || 'développeur,web,informatique',
-    // Nous transmettons les paramètres à notre serveur proxy qui s'occupera de les
-    // transmettre correctement à l'API France Travail
+    // Limiter la taille des mots-clés pour éviter les erreurs 431
+    keywords: keywords ? keywords.substring(0, 200) : 'développeur web',
   };
   
-  // Ajouter les paramètres conditionnels
+  // Ajouter les paramètres conditionnels avec limitation de taille
   if (location) {
-    queryParams.location = location;
+    queryParams.location = location.substring(0, 100);
     
     if (distance) {
       queryParams.distance = distance;
@@ -94,6 +102,7 @@ export const searchJobs = async (params) => {
     const response = await api.get('/api/jobs', { params: queryParams });
     return response.data;
   } catch (error) {
+    console.error('Erreur lors de la recherche:', error.message);
     throw error;
   }
 };
