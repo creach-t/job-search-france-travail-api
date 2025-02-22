@@ -16,7 +16,7 @@ Pour utiliser cette application, vous devez :
 1. **Créer un compte développeur** sur [https://pole-emploi.io/](https://pole-emploi.io/)
 2. **Déclarer une application** dans votre espace développeur
 3. **Souscrire à l'API** "Offres d'emploi v2" 
-4. **Obtenir un client ID et client secret** pour l'API
+4. **Obtenir un token API** valide
 
 ## Installation
 
@@ -35,26 +35,13 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Puis éditez le fichier `.env` pour ajouter vos identifiants d'API :
+Puis éditez le fichier `.env` pour ajouter votre token API :
 ```
 # API France Travail
 REACT_APP_API_TOKEN=your_api_token_here
-
-# Nécessaire uniquement pour le serveur proxy
-FRANCE_TRAVAIL_CLIENT_ID=your_client_id_here
-FRANCE_TRAVAIL_CLIENT_SECRET=your_client_secret_here
 ```
 
-## Lancement
-
-Cette application utilise un serveur proxy pour éviter les erreurs 431 "Request Header Fields Too Large". Vous devez donc lancer deux serveurs :
-
-1. Lancer le serveur proxy (dans un premier terminal)
-```bash
-node server.js
-```
-
-2. Lancer l'application React en mode développement (dans un second terminal)
+4. Lancer l'application en mode développement
 ```bash
 npm start
 ```
@@ -67,18 +54,25 @@ L'application sera disponible à l'adresse [http://localhost:3000](http://localh
 
 Cette erreur se produit lorsque les en-têtes HTTP dépassent la taille maximale autorisée. Pour résoudre ce problème :
 
-1. Simplifiez vos critères de recherche
-2. Utilisez moins de mots-clés à la fois (3 maximum recommandé)
-3. Essayez des termes de recherche plus courts
-4. Assurez-vous que le serveur proxy est actif
+1. **Simplifiez vos critères de recherche**
+   - Utilisez des mots-clés très courts (max 20 caractères)
+   - Limitez-vous à 1-2 compétences à la fois
+   - Évitez les termes de recherche trop longs
+   - Utilisez des noms de villes courts
 
-### Problèmes d'authentification
+2. **Utilisez une navigation privée**
+   - Les cookies peuvent augmenter la taille des en-têtes HTTP
+   - Essayez d'utiliser une fenêtre de navigation privée pour réduire les cookies
 
-Si vous rencontrez des problèmes d'authentification :
+3. **Vérifiez votre token API**
+   - Assurez-vous que votre token API est valide et récent
+   - Les tokens expirés peuvent causer des problèmes d'authentification
 
-1. Vérifiez que vos clés API sont correctes dans le fichier `.env`
-2. Assurez-vous que votre token n'a pas expiré
-3. Vérifiez les logs du serveur proxy pour plus d'informations
+### Autres problèmes courants
+
+- **Aucun résultat** : Essayez des termes plus génériques
+- **Erreur 401/403** : Vérifiez votre token API et sa validité
+- **Erreur 429** : Vous avez dépassé la limite de requêtes, attendez un moment
 
 ## Technologies utilisées
 
@@ -87,13 +81,21 @@ Si vous rencontrez des problèmes d'authentification :
 - Tailwind CSS pour le style
 - React Router pour la navigation
 - React Query pour la gestion des données
-- Express.js pour le serveur proxy
 
 ## Optimisations
 
 Cette application a été optimisée pour éviter les erreurs 431 :
 
-- Utilisation d'un serveur proxy pour alléger les en-têtes
-- Limitation stricte de la taille des paramètres de recherche
-- Réduction du nombre de compétences sélectionnables
-- Minimisation des en-têtes HTTP
+- Limitations strictes sur la taille des paramètres de recherche
+- Réduction du nombre de compétences sélectionnables à 2 maximum
+- Simplification des en-têtes HTTP
+- Réduction du nombre de résultats pour alléger les réponses
+
+## Limites connues
+
+En raison des optimisations pour éviter l'erreur 431 :
+
+- Le nombre de résultats est limité à 5 à la fois
+- Les termes de recherche sont limités à 20 caractères
+- Seulement 2 compétences peuvent être sélectionnées simultanément
+- Certaines fonctionnalités avancées de l'API peuvent ne pas être accessibles
