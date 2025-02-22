@@ -12,7 +12,8 @@ export const COLORS = {
 // Clés de stockage localStorage
 export const STORAGE_KEYS = {
   SAVED_JOBS: 'savedJobs',
-  RECENT_SEARCHES: 'recentSearches'
+  RECENT_SEARCHES: 'recentSearches',
+  AUTH_TOKEN: 'auth_token'
 };
 
 // Routes de l'application
@@ -22,14 +23,14 @@ export const ROUTES = {
   SAVED_JOBS: '/saved'
 };
 
-// API URLs
+// API URLs - Maintenant configurées pour utiliser le serveur local
 export const API = {
-  FRANCE_TRAVAIL: {
-    SEARCH: '/services/offre/v2/rechercheroffres',
-    JOB_DETAILS: '/services/offre/v2/offres'
-  },
-  GEO: {
-    COMMUNES: 'https://geo.api.gouv.fr/communes'
+  BASE_URL: 'http://localhost:3001/api',
+  ENDPOINTS: {
+    AUTH: '/auth',
+    SEARCH_JOBS: '/jobs/search',
+    JOB_DETAILS: '/jobs',
+    COMMUNES: '/communes'
   }
 };
 
