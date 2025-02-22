@@ -163,12 +163,11 @@ export const searchJobs = async (params) => {
     distance,
     experience,
     contractType,
-    department,        // Paramètre supplémentaire: département
-    qualification,     // Paramètre supplémentaire: qualification (cadre/non-cadre)
-    fullTime,          // Paramètre supplémentaire: temps plein
-    workingHours,      // Paramètre supplémentaire: type de durée hebdomadaire
-    romeCode,          // Paramètre supplémentaire: code ROME spécifique
-    educationLevel     // Paramètre supplémentaire: niveau de formation
+    qualification,     // Paramètre pour cadre/non-cadre
+    workingHours,      // Paramètre pour temps plein/partiel
+    department,        // Paramètre optionnel: département
+    romeCode,          // Paramètre optionnel: code ROME spécifique
+    educationLevel     // Paramètre optionnel: niveau de formation
   } = params;
   
   // Construire les paramètres de base (minimalistes)
@@ -197,20 +196,16 @@ export const searchJobs = async (params) => {
   }
   
   // Ajouter les paramètres supplémentaires s'ils sont fournis
-  if (department) {
-    queryParams.departement = department;
-  }
-  
   if (qualification) {
     queryParams.qualification = qualification; // "0" pour non-cadre, "9" pour cadre
   }
   
-  if (fullTime !== undefined) {
-    queryParams.tempsPlein = fullTime; // boolean
+  if (workingHours) {
+    queryParams.dureeHebdo = workingHours; // "1" (temps plein), "2" (temps partiel)
   }
   
-  if (workingHours) {
-    queryParams.dureeHebdo = workingHours; // "0" (non précisé), "1" (temps plein), "2" (temps partiel)
+  if (department) {
+    queryParams.departement = department;
   }
   
   if (romeCode) {
