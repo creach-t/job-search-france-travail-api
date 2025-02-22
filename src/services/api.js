@@ -79,8 +79,14 @@ api.interceptors.request.use(
           }
         });
         
-        // Limiter le nombre de paramètres
-        const allowedParams = ['motsCles', 'commune', 'distance', 'experience', 'typeContrat', 'sort', 'range', 'publieeDepuis'];
+        // Limiter le nombre de paramètres aux paramètres autorisés
+        const allowedParams = [
+          // Paramètres de base
+          'motsCles', 'commune', 'distance', 'experience', 'typeContrat', 'sort', 'range', 'publieeDepuis',
+          // Paramètres supplémentaires utiles
+          'departement', 'qualification', 'tempsPlein', 'dureeHebdo', 'codeROME', 'niveauFormation'
+        ];
+        
         Object.keys(config.params).forEach(key => {
           if (!allowedParams.includes(key)) {
             delete config.params[key];
@@ -148,7 +154,7 @@ api.interceptors.response.use(
   }
 );
 
-// Service ultra-simplifié pour la recherche d'offres d'emploi
+// Service optimisé pour la recherche d'offres d'emploi avec plus de paramètres
 export const searchJobs = async (params) => {
   // Extraction des paramètres de recherche
   const {
@@ -157,34 +163,68 @@ export const searchJobs = async (params) => {
     distance,
     experience,
     contractType,
+    department,        // Paramètre supplémentaire: département
+    qualification,     // Paramètre supplémentaire: qualification (cadre/non-cadre)
+    fullTime,          // Paramètre supplémentaire: temps plein
+    workingHours,      // Paramètre supplémentaire: type de durée hebdomadaire
+    romeCode,          // Paramètre supplémentaire: code ROME spécifique
+    educationLevel     // Paramètre supplémentaire: niveau de formation
   } = params;
   
-  // Construire les paramètres minimalistes
+  // Construire les paramètres de base (minimalistes)
   const queryParams = {
     motsCles: keywords ? keywords.substring(0, 20) : 'dev',
     sort: 1,
-    range: '0-5', // Très peu de résultats
+    range: '0-9', // Légèrement plus de résultats (0-9 au lieu de 0-5)
     publieeDepuis: 31
   };
   
-  // Ajouter les paramètres essentiels uniquement
+  // Ajouter les paramètres de base
   if (location && location.trim()) {
     queryParams.commune = location.substring(0, 20);
   }
   
-  if (experience && experience.trim()) {
+  if (distance) {
+    queryParams.distance = distance;
+  }
+  
+  if (experience) {
     queryParams.experience = experience;
   }
   
-  if (contractType && contractType.trim()) {
+  if (contractType) {
     queryParams.typeContrat = contractType;
+  }
+  
+  // Ajouter les paramètres supplémentaires s'ils sont fournis
+  if (department) {
+    queryParams.departement = department;
+  }
+  
+  if (qualification) {
+    queryParams.qualification = qualification; // "0" pour non-cadre, "9" pour cadre
+  }
+  
+  if (fullTime !== undefined) {
+    queryParams.tempsPlein = fullTime; // boolean
+  }
+  
+  if (workingHours) {
+    queryParams.dureeHebdo = workingHours; // "0" (non précisé), "1" (temps plein), "2" (temps partiel)
+  }
+  
+  if (romeCode) {
+    queryParams.codeROME = romeCode;
+  }
+  
+  if (educationLevel) {
+    queryParams.niveauFormation = educationLevel;
   }
   
   try {
     // Méthode HTTP simple
     const response = await api.get('/search', { 
-      params: queryParams,
-      // Aucun en-tête supplémentaire
+      params: queryParams
     });
     return response.data;
   } catch (error) {
