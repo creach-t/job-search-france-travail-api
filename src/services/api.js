@@ -120,7 +120,21 @@ api.interceptors.response.use(
       // Erreurs avec réponse du serveur
       switch (response.status) {
         case 400:
-          error.message = 'Requête incorrecte. Veuillez vérifier vos paramètres.';
+          // Vérifier si l'erreur concerne le code commune
+          if (error.config.params && error.config.params.commune) {
+            const communeCode = error.config.params.commune;
+            
+            // Erreur spécifique pour Paris
+            if (communeCode === '75056') {
+              error.message = 'Pour Paris, veuillez sélectionner un arrondissement spécifique.';
+            } else if (communeCode.startsWith('75')) {
+              error.message = 'Erreur avec le code INSEE. Veuillez sélectionner une autre commune ou arrondissement.';
+            } else {
+              error.message = 'Requête incorrecte. Veuillez vérifier vos paramètres de recherche.';
+            }
+          } else {
+            error.message = 'Requête incorrecte. Veuillez vérifier vos paramètres.';
+          }
           break;
         case 401:
           // Réinitialiser le token en cas d'erreur d'authentification
