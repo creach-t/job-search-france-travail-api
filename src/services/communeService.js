@@ -8,7 +8,7 @@ const handleParisCode = (commune) => {
   // Si c'est Paris (75056), on doit proposer les arrondissements
   if (commune.code === '75056') {
     // Si le nom contient déjà un numéro d'arrondissement, on l'utilise
-    const arrMatch = commune.nom.match(/(\\d+)[eè]me? arrondissement/i);
+    const arrMatch = commune.nom.match(/(\d+)[eè]me? arrondissement/i);
     if (arrMatch) {
       const arrNum = parseInt(arrMatch[1], 10);
       // Formater le code d'arrondissement (75101 pour le 1er, 75102 pour le 2e, etc.)
