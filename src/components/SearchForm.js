@@ -15,6 +15,19 @@ const contractOptions = [
   { value: 'MIS', label: 'Mission intérimaire' }
 ];
 
+// Options pour les nouveaux paramètres
+const qualificationOptions = [
+  { value: '', label: 'Tous' },
+  { value: '0', label: 'Non-cadre' },
+  { value: '9', label: 'Cadre' }
+];
+
+const workingHoursOptions = [
+  { value: '', label: 'Tous' },
+  { value: '1', label: 'Temps plein' },
+  { value: '2', label: 'Temps partiel' }
+];
+
 // Réduire le nombre de compétences pour éviter les erreurs
 const webDevelopmentSkills = [
   { value: 'javascript', label: 'JavaScript' },
@@ -32,6 +45,8 @@ const SearchForm = ({ onSearch }) => {
   const [distance, setDistance] = useState('10');
   const [experience, setExperience] = useState('');
   const [contractType, setContractType] = useState('');
+  const [qualification, setQualification] = useState(''); // Nouveau paramètre
+  const [workingHours, setWorkingHours] = useState(''); // Nouveau paramètre
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [advancedSearch, setAdvancedSearch] = useState(false);
   const [error, setError] = useState('');
@@ -41,18 +56,18 @@ const SearchForm = ({ onSearch }) => {
     setError('');
     
     // Vérifier les limites de taille pour éviter l'erreur 431
-    if (keywords.length > 20) { // Réduit de 50 à 20
+    if (keywords.length > 20) {
       setError('Les mots-clés sont trop longs (max 20 caractères). Veuillez réduire votre recherche.');
       return;
     }
     
-    if (location.length > 20) { // Réduit de 50 à 20
+    if (location.length > 20) {
       setError('La localisation est trop longue (max 20 caractères). Veuillez la simplifier.');
       return;
     }
     
     // Limiter le nombre de compétences sélectionnées
-    if (selectedSkills.length > 2) { // Réduit de 3 à 2
+    if (selectedSkills.length > 2) {
       setError('Trop de compétences sélectionnées. Veuillez en choisir 2 maximum.');
       return;
     }
@@ -78,13 +93,25 @@ const SearchForm = ({ onSearch }) => {
     // S'assurer que les mots-clés ne dépassent pas 20 caractères
     finalKeywords = finalKeywords.substring(0, 20);
     
-    onSearch({
+    // Construire les paramètres de recherche
+    const searchParams = {
       keywords: finalKeywords,
       location: location.substring(0, 20),
       distance: distance || '10',
       experience,
       contractType
-    });
+    };
+    
+    // Ajouter les nouveaux paramètres s'ils sont sélectionnés
+    if (qualification) {
+      searchParams.qualification = qualification;
+    }
+    
+    if (workingHours) {
+      searchParams.workingHours = workingHours;
+    }
+    
+    onSearch(searchParams);
   };
 
   const handleSkillChange = (skill) => {
@@ -123,9 +150,9 @@ const SearchForm = ({ onSearch }) => {
               onChange={(e) => setKeywords(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
               placeholder="Titre, technologie..."
-              maxLength={20} // Réduit à 20
+              maxLength={20}
             />
-            {keywords.length > 15 && ( // Avertissement plus tôt
+            {keywords.length > 15 && (
               <p className="mt-1 text-xs text-orange-500">
                 {20 - keywords.length} caractères restants
               </p>
@@ -143,7 +170,7 @@ const SearchForm = ({ onSearch }) => {
               onChange={(e) => setLocation(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
               placeholder="Ville, département..."
-              maxLength={20} // Réduit à 20
+              maxLength={20}
             />
           </div>
           
@@ -213,9 +240,46 @@ const SearchForm = ({ onSearch }) => {
               </select>
             </div>
             
+            {/* Nouveaux champs ajoutés */}
+            <div>
+              <label htmlFor="qualification" className="block text-sm font-medium text-gray-700">
+                Qualification
+              </label>
+              <select
+                id="qualification"
+                value={qualification}
+                onChange={(e) => setQualification(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
+              >
+                {qualificationOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="workingHours" className="block text-sm font-medium text-gray-700">
+                Durée du travail
+              </label>
+              <select
+                id="workingHours"
+                value={workingHours}
+                onChange={(e) => setWorkingHours(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
+              >
+                {workingHoursOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <div className="col-span-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Compétences techniques (2 maximum) {/* Réduit de 3 à 2 */}
+                Compétences techniques (2 maximum)
               </label>
               <div className="flex flex-wrap gap-2">
                 {webDevelopmentSkills.map(skill => (
@@ -234,7 +298,7 @@ const SearchForm = ({ onSearch }) => {
                 ))}
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                {selectedSkills.length}/2 compétences sélectionnées {/* Réduit de 3 à 2 */}
+                {selectedSkills.length}/2 compétences sélectionnées
               </p>
             </div>
           </div>
