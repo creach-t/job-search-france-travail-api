@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import CommuneSearch from './CommuneSearch';
 
 // Données pour les listes déroulantes
 const experienceOptions = [
@@ -41,7 +42,7 @@ const webDevelopmentSkills = [
 
 const SearchForm = ({ onSearch }) => {
   const [keywords, setKeywords] = useState('');
-  const [location, setLocation] = useState('');
+  const [selectedCommune, setSelectedCommune] = useState(null);
   const [distance, setDistance] = useState('10');
   const [experience, setExperience] = useState('');
   const [contractType, setContractType] = useState('');
@@ -58,11 +59,6 @@ const SearchForm = ({ onSearch }) => {
     // Vérifier les limites de taille pour éviter l'erreur 431
     if (keywords.length > 20) {
       setError('Les mots-clés sont trop longs (max 20 caractères). Veuillez réduire votre recherche.');
-      return;
-    }
-    
-    if (location.length > 20) {
-      setError('La localisation est trop longue (max 20 caractères). Veuillez la simplifier.');
       return;
     }
     
@@ -96,11 +92,15 @@ const SearchForm = ({ onSearch }) => {
     // Construire les paramètres de recherche
     const searchParams = {
       keywords: finalKeywords,
-      location: location.substring(0, 20),
       distance: distance || '10',
       experience,
       contractType
     };
+    
+    // Ajouter le code INSEE de la commune si disponible, sinon mettre null
+    if (selectedCommune) {
+      searchParams.location = selectedCommune.code; // Code INSEE pour l'API France Travail
+    }
     
     // Ajouter les nouveaux paramètres s'ils sont sélectionnés
     if (qualification) {
@@ -112,6 +112,10 @@ const SearchForm = ({ onSearch }) => {
     }
     
     onSearch(searchParams);
+  };
+
+  const handleCommuneSelect = (commune) => {
+    setSelectedCommune(commune);
   };
 
   const handleSkillChange = (skill) => {
@@ -161,17 +165,9 @@ const SearchForm = ({ onSearch }) => {
           
           <div>
             <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Localisation
+              Commune
             </label>
-            <input
-              type="text"
-              id="location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
-              placeholder="Ville, département..."
-              maxLength={20}
-            />
+            <CommuneSearch onSelect={handleCommuneSelect} />
           </div>
           
           <div>
