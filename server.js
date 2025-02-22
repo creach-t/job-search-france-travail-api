@@ -35,7 +35,8 @@ app.get('/api/jobs', async (req, res) => {
       {
         params,
         headers: {
-          'Authorization': `Bearer ${process.env.FRANCE_TRAVAIL_API_KEY}`
+          'Authorization': `Bearer ${process.env.FRANCE_TRAVAIL_API_KEY}`,
+          'Accept': 'application/json'  // Ajout de l'en-tête Accept
         }
       }
     );
@@ -60,7 +61,8 @@ app.get('/api/jobs/:id', async (req, res) => {
       `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/${jobId}`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.FRANCE_TRAVAIL_API_KEY}`
+          'Authorization': `Bearer ${process.env.FRANCE_TRAVAIL_API_KEY}`,
+          'Accept': 'application/json'  // Ajout de l'en-tête Accept
         }
       }
     );
