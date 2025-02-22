@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 // Création d'une instance Axios avec la configuration de base
+// Notez que nous n'avons plus besoin de spécifier l'URL complète ou les headers d'authentification
+// car nous utilisons notre propre proxy qui s'en charge
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL,
   headers: {
-    'Authorization': `Bearer ${process.env.REACT_APP_API_KEY}`,
     'Content-Type': 'application/json',
   },
 });
@@ -63,18 +63,16 @@ export const searchJobs = async (params) => {
     contractType,
   } = params;
   
-  // Construire les paramètres de requête pour l'API
+  // Construire les paramètres de requête pour notre API proxy
   const queryParams = {
-    // Paramètres par défaut pour les développeurs web
-    motsCles: keywords || 'développeur,web,informatique',
-    sort: 1, // Tri par date de création décroissante
-    range: '0-49', // 50 résultats maximum
-    publieeDepuis: 31, // Offres publiées depuis 31 jours max
+    keywords: keywords || 'développeur,web,informatique',
+    // Nous transmettons les paramètres à notre serveur proxy qui s'occupera de les
+    // transmettre correctement à l'API France Travail
   };
   
-  // Ajouter la recherche par lieu si spécifiée
+  // Ajouter les paramètres conditionnels
   if (location) {
-    queryParams.commune = location;
+    queryParams.location = location;
     
     if (distance) {
       queryParams.distance = distance;
@@ -88,11 +86,12 @@ export const searchJobs = async (params) => {
   
   // Ajouter le type de contrat si spécifié
   if (contractType) {
-    queryParams.typeContrat = contractType;
+    queryParams.contractType = contractType;
   }
   
   try {
-    const response = await api.get('', { params: queryParams });
+    // Notez que nous appelons maintenant notre serveur proxy plutôt que l'API directement
+    const response = await api.get('/api/jobs', { params: queryParams });
     return response.data;
   } catch (error) {
     throw error;
@@ -106,7 +105,8 @@ export const getJobById = async (jobId) => {
   }
   
   try {
-    const response = await api.get(`/${jobId}`);
+    // Notez que nous appelons maintenant notre serveur proxy plutôt que l'API directement
+    const response = await api.get(`/api/jobs/${jobId}`);
     return response.data;
   } catch (error) {
     throw error;
