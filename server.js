@@ -11,6 +11,19 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// Configurer les en-têtes HTTP pour éviter les erreurs 431
+app.use((req, res, next) => {
+  // Limiter la taille des cookies et autres en-têtes
+  const headerSize = JSON.stringify(req.headers).length;
+  if (headerSize > 8000) { // Limite arbitraire pour éviter les erreurs 431
+    return res.status(431).json({
+      error: 'Request header fields too large',
+      message: 'Try reducing search parameters or clear cookies'
+    });
+  }
+  next();
+});
+
 // Activer CORS pour votre application frontend
 app.use(cors());
 
@@ -68,8 +81,8 @@ async function getAccessToken() {
   }
 }
 
-// Route proxy pour la recherche d'offres
-app.get('/api/jobs', async (req, res) => {
+// Route simplifiée pour la recherche d'offres
+app.get('/api', async (req, res) => {
   try {
     // Obtenir un token d'accès valide
     const token = await getAccessToken();
@@ -77,15 +90,15 @@ app.get('/api/jobs', async (req, res) => {
     // Récupérer les paramètres de la requête et limiter leur taille
     let { keywords, location, distance, experience, contractType } = req.query;
     
-    // Limiter la taille des paramètres
-    if (keywords && keywords.length > 200) keywords = keywords.substring(0, 200);
-    if (location && location.length > 100) location = location.substring(0, 100);
+    // Limiter strictement la taille des paramètres
+    if (keywords && keywords.length > 30) keywords = keywords.substring(0, 30);
+    if (location && location.length > 30) location = location.substring(0, 30);
     
     // Construire les paramètres pour l'API
     const params = {
-      motsCles: keywords || 'développeur web',
+      motsCles: keywords || 'développeur',
       sort: 1,
-      range: '0-19', // Réduire le nombre de résultats pour alléger la requête
+      range: '0-5', // Réduire le nombre de résultats pour alléger la requête
       publieeDepuis: 31
     };
     
@@ -98,16 +111,21 @@ app.get('/api/jobs', async (req, res) => {
     console.log('Paramètres de recherche:', params);
     
     // Faire la requête à l'API France Travail avec le token
+    // et des en-têtes minimaux
     const response = await axios.get(
       'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search',
       {
         params,
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          // Limiter au maximum les en-têtes
+          'User-Agent': 'job-search-app'
         },
-        maxContentLength: 10 * 1024 * 1024, // 10 MB
-        maxBodyLength: 10 * 1024 * 1024, // 10 MB
+        // Désactiver les fonctionnalités d'axios qui peuvent ajouter des en-têtes
+        withCredentials: false,
+        maxContentLength: 1 * 1024 * 1024, // 1 MB
+        maxBodyLength: 1 * 1024 * 1024, // 1 MB
       }
     );
     
@@ -128,66 +146,6 @@ app.get('/api/jobs', async (req, res) => {
       error: error.message || 'Erreur lors de la requête à l\'API France Travail',
       details: error.response?.data
     });
-  }
-});
-
-// Route proxy pour obtenir une offre par ID
-app.get('/api/jobs/:id', async (req, res) => {
-  try {
-    // Obtenir un token d'accès valide
-    const token = await getAccessToken();
-    
-    const jobId = req.params.id;
-    
-    console.log('Récupération de l\'offre avec ID:', jobId);
-    
-    // Faire la requête à l'API France Travail avec le token
-    const response = await axios.get(
-      `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/${jobId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        },
-        maxContentLength: 10 * 1024 * 1024, // 10 MB
-        maxBodyLength: 10 * 1024 * 1024, // 10 MB
-      }
-    );
-    
-    console.log('Offre récupérée avec succès');
-    
-    // Renvoyer les données à votre frontend
-    res.json(response.data);
-  } catch (error) {
-    console.error('Erreur API:', error.message);
-    if (error.response) {
-      console.error('Statut:', error.response.status);
-      console.error('Données:', error.response.data);
-    }
-    
-    res.status(error.response?.status || 500).json({
-      error: error.message || 'Erreur lors de la requête à l\'API France Travail',
-      details: error.response?.data
-    });
-  }
-});
-
-// Gestion des erreurs liées au dépassement de quotas
-app.use((error, req, res, next) => {
-  if (error.response && error.response.status === 429) {
-    // Récupérer le header Retry-After
-    const retryAfter = error.response.headers['retry-after'] || 60;
-    
-    res.status(429).json({
-      error: 'Quota dépassé. Veuillez réessayer plus tard.',
-      retryAfter: parseInt(retryAfter, 10)
-    });
-  } else if (error.response && error.response.status === 431) {
-    res.status(431).json({
-      error: 'Les en-têtes de la requête sont trop grands. Veuillez réduire les paramètres de votre recherche.'
-    });
-  } else {
-    next(error);
   }
 });
 
