@@ -17,7 +17,7 @@ const api = axios.create({
 // Intercepteur de requête pour ajouter l'en-tête d'autorisation
 api.interceptors.request.use(
   async config => {
-    const token = "YOUR_API_TOKEN"; // Remplacez par votre token d'API
+    const token = process.env.REACT_APP_API_TOKEN;
     config.headers['Authorization'] = `Bearer ${token}`;
     return config;
   },
