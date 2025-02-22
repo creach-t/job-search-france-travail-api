@@ -29,11 +29,8 @@ const webDevelopmentSkills = [
   { value: 'java', label: 'Java' },
   { value: 'dotnet', label: '.NET' },
   { value: 'html', label: 'HTML' },
-  { value: 'css', label: 'CSS' },
-  { value: 'typescript', label: 'TypeScript' },
-  { value: 'sql', label: 'SQL' },
-  { value: 'mongodb', label: 'MongoDB' },
-  { value: 'git', label: 'Git' }
+  { value: 'css', label: 'CSS' }
+  // Réduit le nombre de compétences disponibles
 ];
 
 const SearchForm = ({ onSearch }) => {
@@ -51,19 +48,19 @@ const SearchForm = ({ onSearch }) => {
     setError('');
     
     // Vérifier les limites de taille pour éviter l'erreur 431
-    if (keywords.length > 200) {
-      setError('Les mots-clés sont trop longs. Veuillez réduire votre recherche.');
+    if (keywords.length > 50) { // Réduit de 200 à 50
+      setError('Les mots-clés sont trop longs (max 50 caractères). Veuillez réduire votre recherche.');
       return;
     }
     
-    if (location.length > 100) {
-      setError('La localisation est trop longue. Veuillez la simplifier.');
+    if (location.length > 50) { // Réduit de 100 à 50
+      setError('La localisation est trop longue (max 50 caractères). Veuillez la simplifier.');
       return;
     }
     
     // Limiter le nombre de compétences sélectionnées pour éviter l'erreur 431
-    if (selectedSkills.length > 5) {
-      setError('Trop de compétences sélectionnées. Veuillez en choisir 5 maximum.');
+    if (selectedSkills.length > 3) { // Réduit de 5 à 3
+      setError('Trop de compétences sélectionnées. Veuillez en choisir 3 maximum.');
       return;
     }
     
@@ -72,23 +69,33 @@ const SearchForm = ({ onSearch }) => {
     
     if (selectedSkills.length > 0) {
       // Limiter le nombre de compétences ajoutées aux mots-clés
-      const skillsKeywords = selectedSkills.slice(0, 5).map(skill => skill.label).join(',');
-      finalKeywords = finalKeywords 
-        ? `${finalKeywords},${skillsKeywords}` 
-        : skillsKeywords;
+      const skillsKeywords = selectedSkills.slice(0, 3).map(skill => skill.label).join(',');
+      
+      // Construire les mots-clés de manière plus concise
+      if (finalKeywords && skillsKeywords) {
+        // Vérifier si l'ajout des compétences dépasserait la limite
+        if ((finalKeywords + ',' + skillsKeywords).length <= 50) {
+          finalKeywords = `${finalKeywords},${skillsKeywords}`;
+        } else {
+          // Si l'ajout dépasserait la limite, ne pas ajouter les compétences
+          setError('Warning: Certaines compétences ont été ignorées car la recherche serait trop longue.');
+        }
+      } else {
+        finalKeywords = skillsKeywords || finalKeywords;
+      }
     }
     
-    // Ajouter automatiquement des mots-clés liés au développement web
-    if (!finalKeywords.toLowerCase().includes('développeur') && 
-        !finalKeywords.toLowerCase().includes('developer')) {
-      finalKeywords = finalKeywords 
-        ? `${finalKeywords},développeur web` 
-        : 'développeur web';
+    // Simplifier les mots-clés automatiques pour "développeur web"
+    if (!finalKeywords) {
+      finalKeywords = 'dev';
     }
+    
+    // S'assurer que les mots-clés ne dépassent pas 50 caractères
+    finalKeywords = finalKeywords.substring(0, 50);
     
     onSearch({
       keywords: finalKeywords,
-      location,
+      location: location.substring(0, 50),
       distance: distance || '10',
       experience,
       contractType
@@ -100,9 +107,9 @@ const SearchForm = ({ onSearch }) => {
       // Si déjà sélectionnée, on la retire
       setSelectedSkills(selectedSkills.filter(s => s.value !== skill.value));
     } else {
-      // Limiter le nombre de compétences à 5 maximum
-      if (selectedSkills.length >= 5) {
-        setError('Vous avez atteint le maximum de 5 compétences. Veuillez en désélectionner une avant d\'en ajouter une nouvelle.');
+      // Limiter le nombre de compétences à 3 maximum (réduit de 5 à 3)
+      if (selectedSkills.length >= 3) {
+        setError('Vous avez atteint le maximum de 3 compétences. Veuillez en désélectionner une avant d\'en ajouter une nouvelle.');
         return;
       }
       // Sinon, on l'ajoute
@@ -130,12 +137,12 @@ const SearchForm = ({ onSearch }) => {
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
-              placeholder="Titre, technologie, compétence..."
-              maxLength={200} // Limiter la longueur pour éviter l'erreur 431
+              placeholder="Titre, technologie..."
+              maxLength={50} // Réduit de 200 à 50
             />
-            {keywords.length > 180 && (
+            {keywords.length > 40 && ( // Modifier l'avertissement pour correspondre à la nouvelle limite
               <p className="mt-1 text-xs text-orange-500">
-                {200 - keywords.length} caractères restants
+                {50 - keywords.length} caractères restants
               </p>
             )}
           </div>
@@ -151,7 +158,7 @@ const SearchForm = ({ onSearch }) => {
               onChange={(e) => setLocation(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
               placeholder="Ville, département..."
-              maxLength={100} // Limiter la longueur pour éviter l'erreur 431
+              maxLength={50} // Réduit de 100 à 50
             />
           </div>
           
@@ -170,7 +177,6 @@ const SearchForm = ({ onSearch }) => {
               <option value="20">20 km</option>
               <option value="30">30 km</option>
               <option value="50">50 km</option>
-              <option value="100">100 km</option>
             </select>
           </div>
         </div>
@@ -225,7 +231,7 @@ const SearchForm = ({ onSearch }) => {
             
             <div className="col-span-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Compétences techniques (5 maximum)
+                Compétences techniques (3 maximum) <!-- Réduit de 5 à 3 -->
               </label>
               <div className="flex flex-wrap gap-2">
                 {webDevelopmentSkills.map(skill => (
@@ -244,7 +250,7 @@ const SearchForm = ({ onSearch }) => {
                 ))}
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                {selectedSkills.length}/5 compétences sélectionnées
+                {selectedSkills.length}/3 compétences sélectionnées <!-- Réduit de 5 à 3 -->
               </p>
             </div>
           </div>
