@@ -115,10 +115,13 @@ const SearchForm = ({ onSearch }) => {
       searchParams.workingHours = workingHours;
     }
     
-    onSearch(searchParams)
-      .finally(() => {
-        setIsSearching(false);
-      });
+    // Appeler la fonction de recherche passée en props
+    onSearch(searchParams);
+    
+    // Réinitialiser l'état de recherche après un court délai
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 500);
   };
 
   const handleCommuneSelect = (commune) => {
