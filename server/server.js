@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 // Chargement des variables d'environnement
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,11 +27,11 @@ let tokenExpiry = null;
 
 // Configuration de l'API France Travail
 const FRANCE_TRAVAIL_API = {
-  TOKEN_URL: process.env.FT_TOKEN_URL || 'https://entreprise.francetravail.fr/connexion/oauth2/access_token',
-  BASE_URL: process.env.FT_BASE_URL || 'https://entreprise.francetravail.fr',
+  TOKEN_URL: process.env.FT_TOKEN_URL,
+  BASE_URL: process.env.FT_BASE_URL,
   CLIENT_ID: process.env.FT_CLIENT_ID,
   CLIENT_SECRET: process.env.FT_CLIENT_SECRET,
-  SCOPE: process.env.FT_SCOPE || 'api_offresdemploiv2 o2dsoffre'
+  SCOPE: process.env.FT_SCOPE
 };
 
 // API geo.api.gouv.fr pour les communes
@@ -48,6 +48,11 @@ async function getAccessToken() {
   }
 
   try {
+    console.log("Tentative d'authentification avec:");
+    console.log("CLIENT_ID:", FRANCE_TRAVAIL_API.CLIENT_ID ? "Défini" : "Non défini");
+    console.log("CLIENT_SECRET:", FRANCE_TRAVAIL_API.CLIENT_SECRET ? "Défini" : "Non défini");
+    console.log("SCOPE:", FRANCE_TRAVAIL_API.SCOPE);
+    console.log("TOKEN_URL:", FRANCE_TRAVAIL_API.TOKEN_URL);
     // Paramètres pour la demande OAuth 2.0
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
@@ -99,56 +104,53 @@ app.post('/api/auth', async (req, res) => {
   }
 });
 
-// Recherche d'offres d'emploi
+async function makeApiCall(url, params, token, retryCount = 0) {
+  try {
+    const response = await axios.get(url, {
+      params,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401 && retryCount === 0) {
+      // Token invalide - on réessaie une fois avec un nouveau token
+      accessToken = null; // Force la régénération
+      const newToken = await getAccessToken();
+      return makeApiCall(url, params, newToken, retryCount + 1);
+    }
+    throw error;
+  }
+}
+
+// Modification de la route de recherche
 app.post('/api/jobs/search', authMiddleware, async (req, res) => {
   try {
-    const {
-      keywords, location, distance, experience,
-      contractType, qualification, workingHours, limit
-    } = req.body;
-
-    // Construction des paramètres pour l'API France Travail
+    const { keywords, location, distance, experience, 
+            contractType, qualification, workingHours } = req.body;
+    
     const params = {
       motsCles: keywords,
-      distance: distance,
-      origineOffre: 1, // 1 = France Travail
-      minCreationDate: "now-1M", // Offres créées dans le dernier mois
-      maxCreationDate: "now", // Jusqu'à maintenant
-      domaine: 'M18', // Domaine informatique (code M18 de France Travail)
-      codeROME: [
-        "M1805", // Études et développement informatique
-        "M1810", // Production et exploitation de systèmes d'information
-        "M1802" // Expertise et support en systèmes d'information
-      ],
-      sort: 0, // Tri par pertinence (0) ou date (1)
-      range: `0-${limit ? limit - 1 : 19}` // Pagination
+      commune: location,
+      typeContrat: contractType,
+      qualification,
+      tempsPlein: workingHours,
+      experience
     };
 
-    // Ajout des paramètres optionnels
-    if (location) params.commune = location;
-    if (contractType) params.typeContrat = contractType;
-    if (qualification) params.qualification = qualification;
-    if (workingHours) params.natureContrat = workingHours;
-    if (experience) params.experience = experience;
-
-    // Appel à l'API France Travail
-    const response = await axios.post(
-      `${FRANCE_TRAVAIL_API.BASE_URL}/services/offre/v2/rechercheroffres`,
+    const data = await makeApiCall(
+      `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/offresdemploi/v2/offres/search`,
       params,
-      {
-        headers: {
-          'Authorization': `Bearer ${req.token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      }
+      req.token
     );
-
-    res.json(response.data);
+    
+    res.json(data);
   } catch (error) {
-    console.error('Erreur lors de la recherche d\'emplois:', error.response?.data || error.message);
+    console.error('Erreur recherche emplois:', error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
-      message: error.response?.data?.message || 'Erreur lors de la recherche d\'emplois'
+      message: error.response?.data?.message || 'Erreur recherche emplois'
     });
   }
 });
@@ -159,7 +161,7 @@ app.get('/api/jobs/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
 
     const response = await axios.get(
-      `${FRANCE_TRAVAIL_API.BASE_URL}/services/offre/v2/offres/${id}`,
+      `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/offresdemploi/v2/offres/${id}`,
       {
         headers: {
           'Authorization': `Bearer ${req.token}`,
