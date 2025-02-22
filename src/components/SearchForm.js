@@ -51,20 +51,24 @@ const SearchForm = ({ onSearch }) => {
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [advancedSearch, setAdvancedSearch] = useState(false);
   const [error, setError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setError('');
+    setIsSearching(true);
     
     // Vérifier les limites de taille pour éviter l'erreur 431
     if (keywords.length > 20) {
       setError('Les mots-clés sont trop longs (max 20 caractères). Veuillez réduire votre recherche.');
+      setIsSearching(false);
       return;
     }
     
     // Limiter le nombre de compétences sélectionnées
     if (selectedSkills.length > 2) {
       setError('Trop de compétences sélectionnées. Veuillez en choisir 2 maximum.');
+      setIsSearching(false);
       return;
     }
     
@@ -111,7 +115,10 @@ const SearchForm = ({ onSearch }) => {
       searchParams.workingHours = workingHours;
     }
     
-    onSearch(searchParams);
+    onSearch(searchParams)
+      .finally(() => {
+        setIsSearching(false);
+      });
   };
 
   const handleCommuneSelect = (commune) => {
@@ -303,9 +310,22 @@ const SearchForm = ({ onSearch }) => {
         <div className="mt-6">
           <button
             type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue"
+            disabled={isSearching}
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+              isSearching 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue'
+            }`}
           >
-            Rechercher
+            {isSearching ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Recherche en cours...
+              </>
+            ) : 'Rechercher'}
           </button>
         </div>
       </form>
