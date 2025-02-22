@@ -17,41 +17,23 @@ const contractOptions = [
   { value: 'FRA', label: 'Franchise' }
 ];
 
+// Réduire le nombre de compétences pour éviter les erreurs d'en-têtes trop grands
 const webDevelopmentSkills = [
   { value: 'javascript', label: 'JavaScript' },
   { value: 'react', label: 'React' },
   { value: 'angular', label: 'Angular' },
   { value: 'vue', label: 'Vue.js' },
   { value: 'node', label: 'Node.js' },
-  { value: 'express', label: 'Express' },
   { value: 'php', label: 'PHP' },
-  { value: 'laravel', label: 'Laravel' },
-  { value: 'symfony', label: 'Symfony' },
   { value: 'python', label: 'Python' },
-  { value: 'django', label: 'Django' },
-  { value: 'flask', label: 'Flask' },
-  { value: 'ruby', label: 'Ruby' },
-  { value: 'rails', label: 'Ruby on Rails' },
   { value: 'java', label: 'Java' },
-  { value: 'spring', label: 'Spring Boot' },
   { value: 'dotnet', label: '.NET' },
   { value: 'html', label: 'HTML' },
   { value: 'css', label: 'CSS' },
-  { value: 'sass', label: 'Sass' },
-  { value: 'tailwind', label: 'Tailwind CSS' },
-  { value: 'bootstrap', label: 'Bootstrap' },
   { value: 'typescript', label: 'TypeScript' },
-  { value: 'graphql', label: 'GraphQL' },
-  { value: 'rest', label: 'REST API' },
   { value: 'sql', label: 'SQL' },
   { value: 'mongodb', label: 'MongoDB' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql', label: 'MySQL' },
-  { value: 'docker', label: 'Docker' },
-  { value: 'git', label: 'Git' },
-  { value: 'aws', label: 'AWS' },
-  { value: 'firebase', label: 'Firebase' },
-  { value: 'azure', label: 'Azure' }
+  { value: 'git', label: 'Git' }
 ];
 
 const SearchForm = ({ onSearch }) => {
@@ -62,15 +44,35 @@ const SearchForm = ({ onSearch }) => {
   const [contractType, setContractType] = useState('');
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [advancedSearch, setAdvancedSearch] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSearch = (e) => {
     e.preventDefault();
+    setError('');
+    
+    // Vérifier les limites de taille pour éviter l'erreur 431
+    if (keywords.length > 200) {
+      setError('Les mots-clés sont trop longs. Veuillez réduire votre recherche.');
+      return;
+    }
+    
+    if (location.length > 100) {
+      setError('La localisation est trop longue. Veuillez la simplifier.');
+      return;
+    }
+    
+    // Limiter le nombre de compétences sélectionnées pour éviter l'erreur 431
+    if (selectedSkills.length > 5) {
+      setError('Trop de compétences sélectionnées. Veuillez en choisir 5 maximum.');
+      return;
+    }
     
     // Construire les mots-clés avec les compétences sélectionnées
     let finalKeywords = keywords;
     
     if (selectedSkills.length > 0) {
-      const skillsKeywords = selectedSkills.map(skill => skill.label).join(',');
+      // Limiter le nombre de compétences ajoutées aux mots-clés
+      const skillsKeywords = selectedSkills.slice(0, 5).map(skill => skill.label).join(',');
       finalKeywords = finalKeywords 
         ? `${finalKeywords},${skillsKeywords}` 
         : skillsKeywords;
@@ -98,6 +100,11 @@ const SearchForm = ({ onSearch }) => {
       // Si déjà sélectionnée, on la retire
       setSelectedSkills(selectedSkills.filter(s => s.value !== skill.value));
     } else {
+      // Limiter le nombre de compétences à 5 maximum
+      if (selectedSkills.length >= 5) {
+        setError('Vous avez atteint le maximum de 5 compétences. Veuillez en désélectionner une avant d\'en ajouter une nouvelle.');
+        return;
+      }
       // Sinon, on l'ajoute
       setSelectedSkills([...selectedSkills, skill]);
     }
@@ -105,6 +112,12 @@ const SearchForm = ({ onSearch }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+          <p>{error}</p>
+        </div>
+      )}
+      
       <form onSubmit={handleSearch}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="col-span-full md:col-span-1 lg:col-span-2">
@@ -118,7 +131,13 @@ const SearchForm = ({ onSearch }) => {
               onChange={(e) => setKeywords(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
               placeholder="Titre, technologie, compétence..."
+              maxLength={200} // Limiter la longueur pour éviter l'erreur 431
             />
+            {keywords.length > 180 && (
+              <p className="mt-1 text-xs text-orange-500">
+                {200 - keywords.length} caractères restants
+              </p>
+            )}
           </div>
           
           <div>
@@ -132,6 +151,7 @@ const SearchForm = ({ onSearch }) => {
               onChange={(e) => setLocation(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm"
               placeholder="Ville, département..."
+              maxLength={100} // Limiter la longueur pour éviter l'erreur 431
             />
           </div>
           
@@ -205,7 +225,7 @@ const SearchForm = ({ onSearch }) => {
             
             <div className="col-span-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Compétences techniques
+                Compétences techniques (5 maximum)
               </label>
               <div className="flex flex-wrap gap-2">
                 {webDevelopmentSkills.map(skill => (
@@ -223,6 +243,9 @@ const SearchForm = ({ onSearch }) => {
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {selectedSkills.length}/5 compétences sélectionnées
+              </p>
             </div>
           </div>
         )}
