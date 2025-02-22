@@ -1,6 +1,6 @@
 # Recherche d'emploi avec l'API France Travail
 
-Application React personnalisée pour la recherche d'offres d'emploi de développeur web utilisant l'API France Travail.
+Application React personnalisée pour la recherche d'offres d'emploi de développeur web utilisant l'API France Travail avec authentification OAuth 2.0.
 
 ## Fonctionnalités
 
@@ -8,7 +8,16 @@ Application React personnalisée pour la recherche d'offres d'emploi de dévelop
 - Filtres spécifiques pour les développeurs web (technologies, expérience, etc.)
 - Interface utilisateur moderne et réactive
 - Visualisation des résultats avec des informations détaillées
-- Architecture sécurisée avec proxy backend
+- Architecture sécurisée avec proxy backend et authentification OAuth 2.0
+
+## Prérequis
+
+Pour utiliser cette application, vous devez :
+
+1. **Créer un compte développeur** sur [https://pole-emploi.io/](https://pole-emploi.io/)
+2. **Déclarer une application** dans votre espace développeur
+3. **Souscrire à l'API** "Offres d'emploi v2" 
+4. **Obtenir les identifiants OAuth 2.0** (Client ID et Client Secret)
 
 ## Installation
 
@@ -27,7 +36,11 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Puis éditez le fichier `.env` avec votre clé API France Travail.
+Puis éditez le fichier `.env` avec vos identifiants OAuth 2.0 :
+```
+FRANCE_TRAVAIL_CLIENT_ID=votre_client_id
+FRANCE_TRAVAIL_CLIENT_SECRET=votre_client_secret
+```
 
 4. Lancer l'application en mode développement
 ```bash
@@ -43,12 +56,23 @@ npm start       # Pour l'application React
 
 Le projet utilise une architecture client-serveur pour sécuriser l'accès à l'API France Travail :
 
-- **Backend (Proxy API)** : Un serveur Express qui gère les requêtes vers l'API France Travail en servant d'intermédiaire. Cette approche permet de :
-  - Résoudre les problèmes de CORS (Cross-Origin Resource Sharing)
-  - Sécuriser la clé API en la gardant côté serveur
-  - Formater les réponses avant de les envoyer au frontend
+- **Backend (Proxy API)** : Un serveur Express qui :
+  - Implémente l'authentification OAuth 2.0 avec le flux "Client Credentials"
+  - Gère la récupération et le renouvellement automatique des tokens d'accès
+  - Résout les problèmes de CORS (Cross-Origin Resource Sharing)
+  - Sécurise les identifiants OAuth en les gardant côté serveur
+  - Gère les limites de quota API et les erreurs 429 (Too Many Requests)
 
 - **Frontend (Application React)** : Interface utilisateur construite avec React, qui communique uniquement avec notre serveur proxy.
+
+## Gestion des tokens
+
+L'application met en œuvre les bonnes pratiques de gestion des tokens d'accès :
+
+- Les tokens d'accès sont stockés uniquement en mémoire côté serveur
+- Le serveur vérifie automatiquement la validité des tokens avant chaque requête
+- Les tokens expirés sont renouvelés automatiquement
+- Une marge de sécurité est appliquée pour éviter les problèmes liés aux décalages d'horloge
 
 ## Technologies utilisées
 
@@ -56,6 +80,7 @@ Le projet utilise une architecture client-serveur pour sécuriser l'accès à l'
 - Node.js
 - Express
 - Axios
+- OAuth 2.0
 - Cors
 - Dotenv
 
@@ -68,7 +93,7 @@ Le projet utilise une architecture client-serveur pour sécuriser l'accès à l'
 
 ## Notes de sécurité
 
-- La clé API ne doit jamais être exposée côté client
+- Les identifiants OAuth ne doivent jamais être exposés côté client
 - Le fichier `.env` ne doit jamais être commité dans le dépôt Git
 - Utilisez toujours le serveur proxy pour communiquer avec l'API France Travail
 
@@ -86,10 +111,8 @@ npm run build
 NODE_ENV=production npm run server
 ```
 
-## Obtenir une clé API
+## Dépannage
 
-Pour obtenir une clé API France Travail :
-1. Créez un compte sur [https://pole-emploi.io/](https://pole-emploi.io/)
-2. Créez une application dans votre espace développeur
-3. Souscrivez à l'API "Offres d'emploi v2"
-4. Récupérez votre clé API dans les détails de votre application
+- **Erreur 401 Unauthorized** : Vérifiez que vos identifiants OAuth sont corrects et que vous avez bien souscrit à l'API "Offres d'emploi v2"
+- **Erreur 429 Too Many Requests** : Vous avez dépassé votre quota d'appels API. L'application implémente automatiquement le mécanisme de Retry-After
+- **Erreur CORS** : Assurez-vous d'utiliser le serveur proxy et non d'appeler l'API directement depuis le frontend
