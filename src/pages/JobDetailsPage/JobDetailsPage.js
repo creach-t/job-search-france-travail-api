@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { useGetJobById } from '../hooks/useJobs';
+import { useGetJobById } from '../../hooks/useJobs';
 
 const JobDetailsPage = () => {
   const { id } = useParams();

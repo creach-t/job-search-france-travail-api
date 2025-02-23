@@ -5,7 +5,7 @@ const qs = require('querystring');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 
 // Configurer les limites d'en-têtes pour Express
 app.use(express.json({ limit: '1mb' }));
@@ -49,13 +49,13 @@ async function getAccessToken() {
 
   try {
     // Utilisation du flux "Client Credentials" d'OAuth 2.0
-    const tokenUrl = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire';
+    const tokenUrl = process.env.FT_TOKEN_URL;
     
     const requestBody = {
       grant_type: 'client_credentials',
-      client_id: process.env.FRANCE_TRAVAIL_CLIENT_ID,
-      client_secret: process.env.FRANCE_TRAVAIL_CLIENT_SECRET,
-      scope: 'api_offresdemploiv2'
+      client_id: process.env.FT_CLIENT_ID,
+      client_secret: process.env.FT_CLIENT_SECRET,
+      scope: process.env.FT_SCOPE
     };
 
     const config = {
@@ -115,7 +115,7 @@ app.get('/api/search', async (req, res) => {
     
     // Faire la requête à l'API France Travail avec le token
     const response = await axios.get(
-      'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search',
+      `${process.env.FT_BASE_URL}partenaire/offresdemploi/v2/offres/search`,
       {
         params,
         headers: {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import SearchForm from '../components/SearchForm';
-import JobCard from '../components/JobCard';
-import { useSearchJobs } from '../hooks/useJobs';
+import SearchForm from '../../components/organisms/SearchForm';
+import JobCard from '../../components/organisms/JobCard';
+import { useSearchJobs } from '../../hooks/useJobs';
 
 const HomePage = () => {
   const [searchParams, setSearchParams] = useState(null);
