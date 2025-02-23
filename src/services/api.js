@@ -16,3 +16,13 @@ export const searchJobs = async (searchParams) => {
     throw new Error('Impossible de rechercher les offres d\'emploi. Veuillez réessayer.');
   }
 };
+
+export const getJobById = async (id) => {
+  try {
+    const response = await api.get(`/jobs/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération du job:', error);
+    throw new Error('Impossible de récupérer les détails de l\'offre. Veuillez réessayer.');
+  }
+};
