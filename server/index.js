@@ -6,16 +6,14 @@ dotenv.config();
 
 const app = express();
 
-// Configuration CORS
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+// Configuration CORS avec les options plus permissives
+app.use(cors({
+  origin: '*', // Autorise toutes les origines
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
+  credentials: true
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
