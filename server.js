@@ -5,7 +5,7 @@ const qs = require('querystring');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 // Configurer les limites d'en-têtes pour Express
 app.use(express.json({ limit: '1mb' }));
@@ -24,8 +24,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Activer CORS pour votre application frontend
-app.use(cors());
+// Activer CORS pour le développement
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 
 // Configurer axios pour éviter l'erreur des en-têtes trop grands
 axios.defaults.maxRedirects = 5;
@@ -81,8 +84,8 @@ async function getAccessToken() {
   }
 }
 
-// Route simplifiée pour la recherche d'offres
-app.get('/api', async (req, res) => {
+// Route pour la recherche d'offres
+app.get('/api/search', async (req, res) => {
   try {
     // Obtenir un token d'accès valide
     const token = await getAccessToken();
@@ -111,7 +114,6 @@ app.get('/api', async (req, res) => {
     console.log('Paramètres de recherche:', params);
     
     // Faire la requête à l'API France Travail avec le token
-    // et des en-têtes minimaux
     const response = await axios.get(
       'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search',
       {
@@ -119,11 +121,8 @@ app.get('/api', async (req, res) => {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
-          // Limiter au maximum les en-têtes
           'User-Agent': 'job-search-app'
         },
-        // Désactiver les fonctionnalités d'axios qui peuvent ajouter des en-têtes
-        withCredentials: false,
         maxContentLength: 1 * 1024 * 1024, // 1 MB
         maxBodyLength: 1 * 1024 * 1024, // 1 MB
       }
@@ -131,7 +130,7 @@ app.get('/api', async (req, res) => {
     
     console.log('Réponse API reçue, statut:', response.status);
     
-    // Renvoyer les données à votre frontend
+    // Renvoyer les données au frontend
     res.json(response.data);
   } catch (error) {
     console.error('Erreur API:', error.message);
@@ -141,7 +140,6 @@ app.get('/api', async (req, res) => {
       console.error('En-têtes:', error.response.headers);
     }
     
-    // Retourner l'erreur avec des informations utiles
     res.status(error.response?.status || 500).json({
       error: error.message || 'Erreur lors de la requête à l\'API France Travail',
       details: error.response?.data
@@ -160,5 +158,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`Serveur proxy démarré sur le port ${PORT}`);
+  console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Frontend: http://localhost:3000`);
+  console.log(`API: http://localhost:${PORT}`);
 });
