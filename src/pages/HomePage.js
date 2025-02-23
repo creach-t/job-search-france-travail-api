@@ -4,7 +4,7 @@ import { searchJobs } from '../services/api';
 import JobCard from '../components/molecules/JobCard/JobCard';
 
 const HomePage = () => {
-  const { data: jobs, isLoading, error } = useQuery({
+  const { data: jobs = [], isLoading, error } = useQuery({
     queryKey: ['jobs'],
     queryFn: () => searchJobs({})
   });
@@ -20,11 +20,13 @@ const HomePage = () => {
   if (isLoading) return <div>Chargement...</div>;
   if (error) return <div>Erreur: {error.message}</div>;
 
+  console.log('Jobs reçus:', jobs); // Pour le débogage
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Offres d'emploi</h1>
       <div className="grid gap-6">
-        {jobs?.map((job) => (
+        {Array.isArray(jobs) && jobs.map((job) => (
           <JobCard
             key={job.id}
             title={job.title}

@@ -10,7 +10,8 @@ const api = axios.create({
 export const searchJobs = async (searchParams) => {
   try {
     const response = await api.post('/jobs/search', searchParams);
-    return response.data;
+    console.log('API Response:', response.data); // Pour le débogage
+    return response.data || [];
   } catch (error) {
     console.error('Erreur lors de la recherche d\'emplois:', error);
     throw new Error('Impossible de rechercher les offres d\'emploi. Veuillez réessayer.');
