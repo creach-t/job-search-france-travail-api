@@ -8,20 +8,22 @@ let mockJobs = [
     title: 'Développeur Frontend React',
     company: 'Tech Corp',
     location: 'Paris',
-    description: 'Nous recherchons un développeur React expérimenté...',
+    description: 'Nous recherchons un développeur React expérimenté pour rejoindre notre équipe dynamique. Le candidat idéal aura une solide expérience en développement frontend et une passion pour les interfaces utilisateur modernes.',
     requirements: ['React', 'JavaScript', 'HTML/CSS'],
-    salary: '45-55k€',
-    type: 'CDI'
+    type: 'CDI',
+    publicationDate: '2024-02-23T10:00:00.000Z',
+    salary: '45-55k€'
   },
   {
     id: '2',
     title: 'Développeur Full Stack JavaScript',
     company: 'Startup Innovation',
     location: 'Lyon',
-    description: 'Startup en croissance cherche un développeur Full Stack...',
+    description: 'Startup en croissance cherche un développeur Full Stack passionné pour participer au développement de notre plateforme SaaS. Stack technique : React, Node.js, MongoDB.',
     requirements: ['Node.js', 'React', 'MongoDB'],
-    salary: '40-50k€',
-    type: 'CDI'
+    type: 'CDI',
+    publicationDate: '2024-02-23T09:30:00.000Z',
+    salary: '40-50k€'
   }
 ];
 
