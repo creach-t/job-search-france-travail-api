@@ -25,7 +25,7 @@ export const ROUTES = {
 
 // API URLs - Maintenant configurées pour utiliser le serveur local
 export const API = {
-  BASE_URL: 'http://localhost:3001/api',
+  BASE_URL: 'http://localhost:4059/api',
   ENDPOINTS: {
     AUTH: '/auth',
     SEARCH_JOBS: '/jobs/search',

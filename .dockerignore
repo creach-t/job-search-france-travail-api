@@ -1,0 +1,36 @@
+# Dépendances
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build
+/build
+/dist
+
+# Environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea
+.vscode
+*.sublime-project
+*.sublime-workspace
+
+# Docker
+Dockerfile
+Dockerfile.dev
+docker-compose.yml
+.dockerignore
+
+# Git
+.git
+.gitignore

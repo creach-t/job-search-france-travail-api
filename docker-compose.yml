@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Service de développement (frontend + serveur)
+  app-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: job-search-dev
+    ports:
+      - "4060:4060"  # Port frontend React
+      - "4059:4059"  # Port serveur API
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true  # Pour que le hot reload fonctionne dans Docker
+    env_file:
+      - ./server/.env
+    command: npm run dev
+
+  # Service de production (build optimisé)
+  app-prod:
+    build: .
+    container_name: job-search-prod
+    ports:
+      - "4059:4059"
+    env_file:
+      - ./server/.env
+    environment:
+      - NODE_ENV=production
