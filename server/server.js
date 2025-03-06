@@ -12,7 +12,7 @@ const PORT = process.env.PORT;
 
 // Configuration avancée de CORS pour résoudre les problèmes de cross-origin
 app.use(cors({
-  origin: 'http://localhost:3000', // URL exacte du frontend
+  origin: process.env.FRONTEND_URL, // URL exacte du frontend
   credentials: true,               // Autorise les cookies et l'authentification
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']

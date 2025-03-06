@@ -11,13 +11,13 @@ COPY . .
 
 # Variables d'environnement pour le build
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=4059
 
 # Build de l'application React
 RUN npm run build
 
 # Exposition du port du serveur
-EXPOSE 3001
+EXPOSE 4059
 
 # Commande de démarrage en production
 CMD ["node", "server/server.js"]
