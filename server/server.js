@@ -18,8 +18,26 @@ const PORT = process.env.SERVER_PORT || process.env.PORT || 4059;
 // Configuration avancée de CORS pour résoudre les problèmes de cross-origin
 // Utilisation de REACT_APP_FRONTEND_URL du fichier .env à la racine ou valeur par défaut
 const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+// Liste des origines autorisées
+const allowedOrigins = [
+  'http://localhost:3000',        // Développement local
+  'http://localhost:4060',        // Production locale avec Docker
+  'https://devjobs.creachtheo.fr' // Site en production
+];
+
 app.use(cors({
-  origin: frontendUrl, // URL exacte du frontend
+  origin: function(origin, callback) {
+    // Autorise les requêtes sans origine (comme les appels API mobiles ou curl)
+    if (!origin) return callback(null, true);
+    
+    // Vérifie si l'origine est autorisée
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `L'origine ${origin} n'est pas autorisée par CORS`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,               // Autorise les cookies et l'authentification
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -290,8 +308,14 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Route pour la vérification de santé
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', version: '1.0.0' });
+});
+
 // Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
   console.log(`Frontend URL configurée: ${frontendUrl}`);
+  console.log(`Origines CORS autorisées: ${allowedOrigins.join(', ')}`);
 });
