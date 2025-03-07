@@ -23,7 +23,8 @@ const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.FRONTEND_U
 const allowedOrigins = [
   'http://localhost:3000',        // Développement local
   'http://localhost:4060',        // Production locale avec Docker
-  'https://devjobs.creachtheo.fr' // Site en production
+  'https://devjobs.creachtheo.fr', // Site en production
+  'http://45.90.121.7:4059'       // Serveur de production
 ];
 
 app.use(cors({
