@@ -6,23 +6,20 @@ services:
     build: .
     container_name: job-search-backend
     restart: unless-stopped
+    env_file:
+      - ./.env.production
+      - ./server/.env
     ports:
       # Backend API
       - "4059:4059"
-    environment:
-      - NODE_ENV=production
-      - SERVER_PORT=4059
-      - REACT_APP_PORT=4060
-      - REACT_APP_FRONTEND_URL=http://localhost:4060
-      - REACT_APP_API_URL=http://localhost:4059/api
+    volumes:
+      - ./build:/app/build  # Partage le dossier build pour Nginx
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4059/api/auth"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4059/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-    volumes:
-      - ./build:/app/build  # Partage le dossier build pour Nginx
   
   # Service frontend (serveur Nginx)
   frontend:
