@@ -6,9 +6,10 @@ services:
     build: .
     container_name: job-search-prod
     ports:
-      # On mappe le port externe au port interne défini par SERVER_PORT
-      # Ces ports seront remplacés par les valeurs des fichiers .env
+      # Backend API port
       - "${SERVER_PORT:-4059}:${SERVER_PORT:-4059}"
+      # Frontend port (for dev server or static files serving)
+      - "${REACT_APP_PORT:-4060}:${REACT_APP_PORT:-4060}"
     env_file:
       # Charger d'abord le fichier .env à la racine
       - ./.env
