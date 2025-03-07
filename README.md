@@ -4,15 +4,17 @@ Application React de recherche d'emploi personnalisée pour les développeurs we
 
 ## Architecture
 
-L'application utilise une architecture en deux parties :
+L'application utilise une architecture en trois parties :
 
 1. **Frontend** : Application React utilisant Tailwind CSS pour l'interface utilisateur
 2. **Serveur intermédiaire** : Serveur Node.js qui gère l'authentification OAuth 2.0 avec l'API France Travail
+3. **Nginx** : Serveur web qui sert les fichiers statiques du frontend en production
 
 ## Prérequis
 
 - Node.js (v14+)
 - Compte développeur France Travail avec identifiants OAuth
+- Docker et Docker Compose (pour la production)
 
 ## Installation
 
@@ -40,10 +42,8 @@ cp .env.example .env
 cp server/.env.example server/.env
 ```
 
-5. Éditez les fichiers `.env` et `server/.env` avec vos identifiants France Travail et les ports souhaités
+5. Éditez les fichiers `.env` et `server/.env` avec vos identifiants France Travail
    
-   Consultez le fichier [CONFIG.md](CONFIG.md) pour plus de détails sur la configuration des ports.
-
 ## Utilisation
 
 ### Développement
@@ -55,54 +55,49 @@ npm run dev
 ```
 
 Cela lancera :
-- Le serveur backend sur le port défini dans `.env` (SERVER_PORT) ou `server/.env` (PORT), par défaut http://localhost:4059
-- L'application React sur le port 3000, par défaut http://localhost:3000
+- Le serveur backend sur le port 4059, accessible sur http://localhost:4059
+- L'application React sur le port 3000, accessible sur http://localhost:3000
 
-### Production
+### Production avec Docker
 
-Pour déployer en production :
+Pour déployer en production avec Docker :
 
-1. Construisez l'application :
+1. Assurez-vous d'avoir Docker et Docker Compose installés
+
+2. Construisez l'application React :
 ```bash
 npm run build
 ```
 
-2. Démarrez uniquement le serveur :
-```bash
-NODE_ENV=production npm run server
-```
-
-### Utilisation avec Docker (Recommandé pour la production)
-
-Le projet est configuré pour fonctionner en production avec Docker :
-
-1. **Méthode simple** - Utilisez le script de démarrage :
+3. Utilisez le script de démarrage pour lancer les conteneurs Docker :
 ```bash
 chmod +x start-docker.sh
 ./start-docker.sh
 ```
 
-2. **Méthode manuelle** - Démarrez avec docker-compose :
-```bash
-docker-compose up -d
-```
-
 L'application sera disponible sur :
-- Frontend : http://localhost:4060
+- Frontend : http://localhost:4060 (servi par Nginx)
 - Backend API : http://localhost:4059
+
+#### Configuration Docker
+
+La configuration Docker comprend deux services :
+- `backend` : Serveur Node.js qui gère l'API
+- `frontend` : Serveur Nginx qui sert l'application React
 
 Pour arrêter l'application :
 ```bash
 docker-compose down
 ```
 
-#### Configuration Docker
+## Configuration Nginx
 
-La configuration Docker est définie avec des ports fixes :
-- Frontend : **4060**
-- Backend : **4059**
+La configuration Nginx se trouve dans le fichier `nginx/nginx.conf`. Cette configuration :
+- Sert l'application React sur le port 4060
+- Redirige les requêtes API vers le serveur backend sur le port 4059
+- Configure les en-têtes pour une mise en cache optimale des fichiers statiques
 
-Aucune configuration supplémentaire n'est requise pour Docker - tous les paramètres sont définis dans le `Dockerfile` et `docker-compose.yml`.
+Si vous souhaitez modifier les ports ou d'autres paramètres Nginx, modifiez ce fichier.
 
 ## Fonctionnalités
 
@@ -115,22 +110,25 @@ Aucune configuration supplémentaire n'est requise pour Docker - tous les param�
 ## Structure du projet
 
 ```
-├── public             # Fichiers statiques
-├── server             # Serveur intermédiaire Node.js
-│   ├── server.js      # Implémentation du serveur
-│   └── .env.example   # Exemple de variables d'environnement
-├── src                # Code source React
-│   ├── components     # Composants React
-│   ├── context        # Contextes React (pour les états globaux)
-│   ├── hooks          # Hooks personnalisés
-│   ├── pages          # Pages principales
-│   ├── services       # Services pour les appels API
-│   └── utils          # Utilitaires et constantes
-├── .env.example       # Exemple de variables d'environnement
-├── .env.docker        # Variables d'environnement pour Docker
-├── Dockerfile         # Configuration pour Docker
-├── docker-compose.yml # Configuration Docker Compose
-└── start-docker.sh    # Script pour démarrer avec Docker
+├── build               # Fichiers construits de l'application React
+├── nginx               # Configuration Nginx
+│   └── nginx.conf      # Configuration du serveur web
+├── public              # Fichiers statiques
+├── server              # Serveur intermédiaire Node.js
+│   ├── server.js       # Implémentation du serveur
+│   └── .env.example    # Exemple de variables d'environnement
+├── src                 # Code source React
+│   ├── components      # Composants React
+│   ├── context         # Contextes React (pour les états globaux)
+│   ├── hooks           # Hooks personnalisés
+│   ├── pages           # Pages principales
+│   ├── services        # Services pour les appels API
+│   └── utils           # Utilitaires et constantes
+├── .env.example        # Exemple de variables d'environnement
+├── .env.docker         # Variables d'environnement pour Docker
+├── Dockerfile          # Configuration pour Docker
+├── docker-compose.yml  # Configuration Docker Compose
+└── start-docker.sh     # Script pour démarrer avec Docker
 ```
 
 ## API
