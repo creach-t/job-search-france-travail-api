@@ -14,14 +14,15 @@ COPY . .
 ENV NODE_ENV=production
 # Utiliser SERVER_PORT au lieu de PORT pour être cohérent avec la nouvelle structure
 ENV SERVER_PORT=4059
+ENV REACT_APP_PORT=4060
+ENV REACT_APP_FRONTEND_URL=http://localhost:4060
 ENV REACT_APP_API_URL=http://localhost:4059/api
 
 # Build de l'application React
 RUN npm run build
 
-# Exposition du port du serveur
-# Note: le port réel sera déterminé par SERVER_PORT lors de l'exécution
-EXPOSE 4059
+# Exposition des ports du serveur
+EXPOSE 4059 4060
 
 # Commande de démarrage en production
 CMD ["node", "server/server.js"]
