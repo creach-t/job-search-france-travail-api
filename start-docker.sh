@@ -24,8 +24,8 @@ echo "Démarrage de l'application en mode production avec Docker..."
 echo "Frontend: http://localhost:4060"
 echo "Backend API: http://localhost:4059"
 
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 
 echo "Application démarrée en arrière-plan."
 echo "Pour voir les logs: docker-compose logs -f"
