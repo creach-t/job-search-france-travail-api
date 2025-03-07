@@ -4,15 +4,22 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Chargement des variables d'environnement
+// Chargement des variables d'environnement du fichier à la racine en premier (si existe)
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// Chargement des variables d'environnement spécifiques au serveur (prioritaires)
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const PORT = process.env.PORT;
+// Utilisation de SERVER_PORT du fichier .env à la racine, ou PORT du fichier server/.env,
+// ou valeur par défaut
+const PORT = process.env.SERVER_PORT || process.env.PORT || 4059;
 
 // Configuration avancée de CORS pour résoudre les problèmes de cross-origin
+// Utilisation de REACT_APP_FRONTEND_URL du fichier .env à la racine ou valeur par défaut
+const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // URL exacte du frontend
+  origin: frontendUrl, // URL exacte du frontend
   credentials: true,               // Autorise les cookies et l'authentification
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -234,7 +241,7 @@ app.get('/api/communes/search', async (req, res) => {
       // Cas spécial pour Paris
       if (commune.code === '75056') {
         // Si le nom contient déjà un numéro d'arrondissement, on l'utilise
-        const arrMatch = commune.nom.match(/(\d+)[eè]me? arrondissement/i);
+        const arrMatch = commune.nom.match(/(\\d+)[eè]me? arrondissement/i);
         if (arrMatch) {
           const arrNum = parseInt(arrMatch[1], 10);
           // Formater le code d'arrondissement (75101 pour le 1er, 75102 pour le 2e, etc.)
@@ -286,4 +293,5 @@ if (process.env.NODE_ENV === 'production') {
 // Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Frontend URL configurée: ${frontendUrl}`);
 });
