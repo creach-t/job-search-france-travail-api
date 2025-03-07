@@ -23,9 +23,10 @@ export const ROUTES = {
   SAVED_JOBS: '/saved'
 };
 
-// API URLs - Maintenant configurées pour utiliser le serveur local
+// API URLs - Configurées pour utiliser les variables d'environnement
 export const API = {
-  BASE_URL: 'http://localhost:4059/api',
+  // Utilise la variable d'environnement ou une valeur par défaut
+  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:4059/api',
   ENDPOINTS: {
     AUTH: '/auth',
     SEARCH_JOBS: '/jobs/search',
