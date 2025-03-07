@@ -34,10 +34,15 @@ npm install cors dotenv express
 
 4. Configurez les variables d'environnement :
 ```bash
+# Créez le fichier .env à la racine
+cp .env.example .env
+# Créez le fichier .env dans le dossier server
 cp server/.env.example server/.env
 ```
 
-5. Éditez le fichier `server/.env` avec vos identifiants France Travail
+5. Éditez les fichiers `.env` et `server/.env` avec vos identifiants France Travail et les ports souhaités
+   
+   Consultez le fichier [CONFIG.md](CONFIG.md) pour plus de détails sur la configuration des ports.
 
 ## Utilisation
 
@@ -50,8 +55,8 @@ npm run dev
 ```
 
 Cela lancera :
-- Le serveur backend sur http://localhost:3001
-- L'application React sur http://localhost:3000
+- Le serveur backend sur le port défini dans `.env` (SERVER_PORT) ou `server/.env` (PORT), par défaut http://localhost:4059
+- L'application React sur le port 3000, par défaut http://localhost:3000
 
 ### Production
 
@@ -82,13 +87,14 @@ NODE_ENV=production npm run server
 ├── server             # Serveur intermédiaire Node.js
 │   ├── server.js      # Implémentation du serveur
 │   └── .env.example   # Exemple de variables d'environnement
-└── src                # Code source React
-    ├── components     # Composants React
-    ├── context        # Contextes React (pour les états globaux)
-    ├── hooks          # Hooks personnalisés
-    ├── pages          # Pages principales
-    ├── services       # Services pour les appels API
-    └── utils          # Utilitaires et constantes
+├── src                # Code source React
+│   ├── components     # Composants React
+│   ├── context        # Contextes React (pour les états globaux)
+│   ├── hooks          # Hooks personnalisés
+│   ├── pages          # Pages principales
+│   ├── services       # Services pour les appels API
+│   └── utils          # Utilitaires et constantes
+└── .env.example       # Exemple de variables d'environnement
 ```
 
 ## API
