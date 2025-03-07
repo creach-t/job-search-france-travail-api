@@ -70,8 +70,48 @@ Ainsi, si vous définissez `SERVER_PORT` dans le fichier `.env` à la racine, ce
 
 5. Il n'est pas nécessaire de modifier les ports dans `server/.env` car ils seront écrasés par ceux définis dans le fichier principal.
 
+## Configuration Docker
+
+Le projet inclut une configuration Docker qui utilise également les variables d'environnement des fichiers `.env`.
+
+### Utilisation avec Docker
+
+1. Assurez-vous d'avoir créé les fichiers `.env` à la racine et `server/.env` comme expliqué ci-dessus.
+
+2. Dans le fichier `.env` à la racine, configurez les ports souhaités pour Docker :
+   ```
+   SERVER_PORT=4059
+   ```
+
+3. Lancez l'application avec Docker Compose :
+   ```bash
+   docker-compose up -d
+   ```
+
+### Comment ça fonctionne
+
+- Le fichier `docker-compose.yml` charge d'abord le fichier `.env` à la racine, puis le fichier `server/.env`.
+- Les ports exposés dans le conteneur sont automatiquement mappés aux ports spécifiés dans la variable `SERVER_PORT`.
+- Si `SERVER_PORT` n'est pas défini, il utilisera la valeur par défaut (4059).
+
+### Configuration avancée pour Docker
+
+Si vous souhaitez utiliser des ports différents pour le développement local et pour Docker, vous pouvez créer un fichier `.env.docker` spécifique :
+
+```bash
+# Créez un fichier .env.docker
+cp .env.example .env.docker
+```
+
+Puis modifiez les ports dans ce fichier et lancez Docker avec ce fichier :
+
+```bash
+docker-compose --env-file .env.docker up -d
+```
+
 ## Remarques importantes
 
 - Les variables spécifiques à React doivent commencer par `REACT_APP_` pour être accessibles dans le code du frontend.
 - Les variables définies dans le fichier `.env` à la racine sont prioritaires sur celles définies dans `server/.env`.
 - Le serveur utilise `SERVER_PORT` défini dans le fichier racine, ou `PORT` défini dans `server/.env` si `SERVER_PORT` n'existe pas.
+- Pour Docker, assurez-vous que les ports spécifiés dans `SERVER_PORT` ne sont pas déjà utilisés sur votre machine hôte.
