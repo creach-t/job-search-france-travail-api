@@ -72,6 +72,20 @@ npm run build
 NODE_ENV=production npm run server
 ```
 
+### Utilisation avec Docker
+
+Le projet peut également être exécuté avec Docker :
+
+1. Configurez les variables d'environnement comme indiqué ci-dessus
+2. Lancez l'application avec Docker Compose :
+```bash
+docker-compose up -d
+```
+
+L'application sera disponible sur le port spécifié dans la variable `SERVER_PORT` du fichier `.env` (par défaut 4059).
+
+Pour plus de détails sur la configuration Docker, voir [CONFIG.md](CONFIG.md).
+
 ## Fonctionnalités
 
 - Recherche d'offres d'emploi pour les développeurs web
@@ -94,7 +108,9 @@ NODE_ENV=production npm run server
 │   ├── pages          # Pages principales
 │   ├── services       # Services pour les appels API
 │   └── utils          # Utilitaires et constantes
-└── .env.example       # Exemple de variables d'environnement
+├── .env.example       # Exemple de variables d'environnement
+├── Dockerfile         # Configuration pour Docker
+└── docker-compose.yml # Configuration Docker Compose
 ```
 
 ## API
