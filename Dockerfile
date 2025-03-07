@@ -9,18 +9,15 @@ RUN npm install
 # Copier le reste du code source
 COPY . .
 
-# Variables d'environnement fixes pour la production
-ENV NODE_ENV=production
-ENV SERVER_PORT=4059
-ENV REACT_APP_PORT=4060
-ENV REACT_APP_FRONTEND_URL=http://localhost:4060
-ENV REACT_APP_API_URL=http://localhost:4059/api
+# Utiliser les variables d'environnement de production
+COPY .env.production .env
 
-# Build de l'application React
+# Build de l'application React avec les variables d'environnement de production
+ENV NODE_ENV=production
 RUN npm run build
 
 # Exposition des ports
-EXPOSE 4059 4060
+EXPOSE 4059
 
 # Commande de démarrage en production
 CMD ["node", "server/server.js"]
