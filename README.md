@@ -72,19 +72,37 @@ npm run build
 NODE_ENV=production npm run server
 ```
 
-### Utilisation avec Docker
+### Utilisation avec Docker (Recommandé pour la production)
 
-Le projet peut également être exécuté avec Docker :
+Le projet est configuré pour fonctionner en production avec Docker :
 
-1. Configurez les variables d'environnement comme indiqué ci-dessus
-2. Lancez l'application avec Docker Compose :
+1. **Méthode simple** - Utilisez le script de démarrage :
+```bash
+chmod +x start-docker.sh
+./start-docker.sh
+```
+
+2. **Méthode manuelle** - Démarrez avec docker-compose :
 ```bash
 docker-compose up -d
 ```
 
-L'application sera disponible sur le port spécifié dans la variable `SERVER_PORT` du fichier `.env` (par défaut 4059).
+L'application sera disponible sur :
+- Frontend : http://localhost:4060
+- Backend API : http://localhost:4059
 
-Pour plus de détails sur la configuration Docker, voir [CONFIG.md](CONFIG.md).
+Pour arrêter l'application :
+```bash
+docker-compose down
+```
+
+#### Configuration Docker
+
+La configuration Docker est définie avec des ports fixes :
+- Frontend : **4060**
+- Backend : **4059**
+
+Aucune configuration supplémentaire n'est requise pour Docker - tous les paramètres sont définis dans le `Dockerfile` et `docker-compose.yml`.
 
 ## Fonctionnalités
 
@@ -109,8 +127,10 @@ Pour plus de détails sur la configuration Docker, voir [CONFIG.md](CONFIG.md).
 │   ├── services       # Services pour les appels API
 │   └── utils          # Utilitaires et constantes
 ├── .env.example       # Exemple de variables d'environnement
+├── .env.docker        # Variables d'environnement pour Docker
 ├── Dockerfile         # Configuration pour Docker
-└── docker-compose.yml # Configuration Docker Compose
+├── docker-compose.yml # Configuration Docker Compose
+└── start-docker.sh    # Script pour démarrer avec Docker
 ```
 
 ## API
