@@ -25,7 +25,7 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=4059"
     networks:
       - default
-      - traefik-public
+      - traefik_default  # Le nom du réseau par défaut de votre stack Traefik
   
   # Service frontend (serveur Nginx)
   frontend:
@@ -47,10 +47,10 @@ services:
       - "traefik.http.services.frontend.loadbalancer.server.port=4060"
     networks:
       - default
-      - traefik-public
+      - traefik_default
 
 # Définition des réseaux
 networks:
   default:
-  traefik-public:
+  traefik_default:
     external: true  # Ce réseau est créé à l'extérieur de ce docker-compose
