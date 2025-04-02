@@ -19,13 +19,11 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.jobs.creachtheo.fr`)"
+      - "traefik.http.routers.backend.rule=Host(`api.devjobs.creachtheo.fr`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
       - "traefik.http.services.backend.loadbalancer.server.port=4059"
     networks:
-      - default
       - traefik-public
   
   # Service frontend (serveur Nginx)
@@ -42,44 +40,14 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`jobs.creachtheo.fr`)"
+      - "traefik.http.routers.frontend.rule=Host(`devjobs.creachtheo.fr`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=4060"
     networks:
-      - default
       - traefik-public
 
-  # Service Traefik (optionnel - à supprimer si vous utilisez une instance centralisée)
-  traefik:
-    image: traefik:v2.10
-    container_name: job-search-traefik
-    restart: unless-stopped
-    command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=creach.t@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-certificates:/letsencrypt
-    networks:
-      - traefik-public
-
-# Définition des réseaux
+# Définition du réseau utilisé par Traefik
 networks:
-  default:
   traefik-public:
-    external: true  # Ce réseau sera créé par la stack Traefik centrale
-
-volumes:
-  traefik-certificates:
+    external: true  # Utilisation du réseau existant géré par Traefik centralisé
