@@ -21,11 +21,12 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.jobs.creachtheo.fr`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
       - "traefik.http.services.backend.loadbalancer.server.port=4059"
     networks:
       - default
-      - traefik_default  # Le nom du réseau par défaut de votre stack Traefik
+      - traefik-public
   
   # Service frontend (serveur Nginx)
   frontend:
@@ -43,14 +44,42 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`jobs.creachtheo.fr`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=4060"
     networks:
       - default
-      - traefik_default
+      - traefik-public
+
+  # Service Traefik (optionnel - à supprimer si vous utilisez une instance centralisée)
+  traefik:
+    image: traefik:v2.10
+    container_name: job-search-traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=creach.t@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certificates:/letsencrypt
+    networks:
+      - traefik-public
 
 # Définition des réseaux
 networks:
   default:
-  traefik_default:
-    external: true  # Ce réseau est créé à l'extérieur de ce docker-compose
+  traefik-public:
+    external: true  # Ce réseau sera créé par la stack Traefik centrale
+
+volumes:
+  traefik-certificates:
