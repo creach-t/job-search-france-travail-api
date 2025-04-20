@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useGetJobById } from '../hooks/useJobs';
+import ApplyButton from '../components/JobCard/ApplyButton';
 
 const JobDetailsPage = () => {
   const { id } = useParams();
@@ -71,17 +72,68 @@ const JobDetailsPage = () => {
     );
   }
 
+  // Organisation du contenu de l'offre
+  const hasGeolocation = job.lieuTravail?.latitude && job.lieuTravail?.longitude;
+  const hasQualifications = job.qualitesProfessionnelles && job.qualitesProfessionnelles.length > 0;
+  const hasCompetences = job.competences && job.competences.length > 0;
+  const hasFormations = job.formations && job.formations.length > 0;
+  const hasLangues = job.langues && job.langues.length > 0;
+  const hasPermis = job.permis && job.permis.length > 0;
+  const hasContexteTravail = job.contexteTravail && (
+    (job.contexteTravail.horaires && job.contexteTravail.horaires.length > 0) || 
+    (job.contexteTravail.conditionsExercice && job.contexteTravail.conditionsExercice.length > 0)
+  );
+  const hasEnterpriseInfo = job.entreprise && (job.entreprise.description || job.entreprise.url);
+
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6 flex justify-between items-start">
-          <div>
+        <div className="px-4 py-5 sm:px-6 flex flex-col md:flex-row md:justify-between md:items-start">
+          <div className="mb-4 md:mb-0">
             <h1 className="text-2xl font-bold text-gray-900">{job.intitule}</h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               {job.entreprise?.nom || 'Entreprise non spécifiée'}
+              {job.lieuTravail?.libelle ? ` · ${job.lieuTravail.libelle}` : ''}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {job.typeContratLibelle && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                  {job.typeContratLibelle}
+                </span>
+              )}
+              {job.dureeTravailLibelleConverti && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-800">
+                  {job.dureeTravailLibelleConverti}
+                </span>
+              )}
+              {job.experienceLibelle && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                  {job.experienceLibelle}
+                </span>
+              )}
+              {job.qualificationLibelle && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-yellow-100 text-yellow-800">
+                  {job.qualificationLibelle}
+                </span>
+              )}
+              {job.alternance && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-orange-100 text-orange-800">
+                  Alternance
+                </span>
+              )}
+              {job.accessibleTH && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-teal-100 text-teal-800">
+                  Accessible TH
+                </span>
+              )}
+              {job.offresManqueCandidats && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-800">
+                  Offre en tension
+                </span>
+              )}
+            </div>
           </div>
-          <div>
+          <div className="flex flex-col md:flex-row gap-3">
             <button
               onClick={handleSaveJob}
               className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -106,21 +158,43 @@ const JobDetailsPage = () => {
               </svg>
               {isSaved ? 'Sauvegardée' : 'Sauvegarder'}
             </button>
+            
+            {/* Bouton de postulation */}
+            <ApplyButton job={job} isDetailed={true} />
           </div>
         </div>
         
         <div className="border-t border-gray-200">
           <dl>
+            {/* Section principale */}
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">Lieu</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                 {job.lieuTravail?.libelle || 'Lieu non spécifié'}
+                {job.lieuTravail?.codePostal && ` (${job.lieuTravail.codePostal})`}
+                {hasGeolocation && (
+                  <div className="mt-2">
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${job.lieuTravail.latitude},${job.lieuTravail.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-ft-blue hover:underline inline-flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Voir sur la carte
+                    </a>
+                  </div>
+                )}
               </dd>
             </div>
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">Type de contrat</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                 {job.typeContratLibelle || 'Type de contrat non spécifié'}
+                {job.natureContrat && ` (${job.natureContrat})`}
               </dd>
             </div>
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -133,48 +207,79 @@ const JobDetailsPage = () => {
               <dt className="text-sm font-medium text-gray-500">Salaire</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                 {job.salaire?.libelle || 'Non spécifié'}
+                {job.salaire?.commentaire && (
+                  <div className="mt-1 text-gray-600">{job.salaire.commentaire}</div>
+                )}
+                {(job.salaire?.complement1 || job.salaire?.complement2) && (
+                  <div className="mt-1">
+                    <strong>Compléments : </strong>
+                    <ul className="list-disc list-inside">
+                      {job.salaire.complement1 && <li>{job.salaire.complement1}</li>}
+                      {job.salaire.complement2 && <li>{job.salaire.complement2}</li>}
+                    </ul>
+                  </div>
+                )}
               </dd>
             </div>
-            <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Date de publication</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {new Date(job.dateCreation).toLocaleDateString('fr-FR')}
-              </dd>
-            </div>
-            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Expérience requise</dt>
-              <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {job.experienceLibelle || 'Non spécifiée'}
-              </dd>
-            </div>
-            
-            {/* Compétences */}
-            {job.competences && job.competences.length > 0 && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Compétences</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                  <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                    {job.competences.map((competence, index) => (
-                      <li key={index} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                        <div className="w-0 flex-1 flex items-center">
-                          <span className="ml-2 flex-1 w-0 truncate">
-                            {competence.libelle}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            )}
             
             {/* Description */}
             <div className="bg-white px-4 py-5 sm:px-6">
-              <dt className="text-sm font-medium text-gray-500">Description</dt>
+              <dt className="text-base font-medium text-gray-900 mb-3">Description du poste</dt>
               <dd className="mt-2 text-sm text-gray-900 prose max-w-none">
                 <div dangerouslySetInnerHTML={{ __html: job.description?.replace(/\n/g, '<br />') || 'Aucune description disponible' }} />
               </dd>
             </div>
+            
+            {/* Contact et candidature */}
+            {job.contact && (
+              <div className="bg-gray-50 px-4 py-5 sm:px-6">
+                <div className="mb-3">
+                  <h3 className="text-base font-medium text-gray-900">Comment postuler</h3>
+                  <p className="mt-1 text-sm text-gray-500">Utilisez les informations de contact ci-dessous pour candidater à cette offre</p>
+                </div>
+                <div className="mt-4 border border-gray-200 rounded-md bg-white p-4">
+                  {job.contact.nom && (
+                    <p className="text-sm mb-2">
+                      <span className="font-medium">Personne à contacter :</span> {job.contact.nom}
+                    </p>
+                  )}
+                  {job.contact.telephone && (
+                    <p className="text-sm mb-2">
+                      <span className="font-medium">Téléphone :</span> 
+                      <a href={`tel:${job.contact.telephone}`} className="ml-1 text-ft-blue hover:underline">
+                        {job.contact.telephone}
+                      </a>
+                    </p>
+                  )}
+                  {job.contact.courriel && (
+                    <p className="text-sm mb-2">
+                      <span className="font-medium">Email :</span> 
+                      <a href={`mailto:${job.contact.courriel}`} className="ml-1 text-ft-blue hover:underline">
+                        {job.contact.courriel}
+                      </a>
+                    </p>
+                  )}
+                  {job.contact.urlPostulation && (
+                    <div className="mt-3">
+                      <a 
+                        href={job.contact.urlPostulation} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue"
+                      >
+                        Postuler en ligne
+                      </a>
+                    </div>
+                  )}
+                  {job.contact.commentaire && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-md text-sm">
+                      <p className="font-medium mb-1">Informations supplémentaires :</p>
+                      <p>{job.contact.commentaire}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </dl>
         </div>
       </div>
