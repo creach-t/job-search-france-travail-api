@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import ApplyButton from './JobCard/ApplyButton';
 
 const JobCard = ({ job }) => {
   const [isSaved, setIsSaved] = useState(false);
@@ -74,6 +75,11 @@ const JobCard = ({ job }) => {
               {job.experienceLibelle}
             </span>
           )}
+          {job.qualificationLibelle && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-yellow-100 text-yellow-800">
+              {job.qualificationLibelle}
+            </span>
+          )}
         </div>
 
         <p className="mt-4 text-sm text-gray-600 line-clamp-3">
@@ -91,13 +97,16 @@ const JobCard = ({ job }) => {
           </span>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex space-x-4">
           <Link
             to={`/job/${job.id}`}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue"
           >
             Voir le détail
           </Link>
+          
+          {/* Bouton de postulation */}
+          <ApplyButton job={job} />
         </div>
       </div>
     </div>
