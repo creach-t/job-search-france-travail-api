@@ -1,5 +1,7 @@
 FROM node:18-alpine
 
+RUN apk add --no-cache bash
+
 WORKDIR /app
 
 # Copier les fichiers de package.json et installer les dépendances
