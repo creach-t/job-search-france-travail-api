@@ -2,7 +2,8 @@ import { useState } from 'react';
 import MainSearchFields from './MainSearchFields';
 import AdvancedSearchFields from './AdvancedSearchFields';
 import SearchButton from './SearchButton';
-import MetierAutocomplete from './MetierAutocomplete';
+// Version simple pour test
+import MetierAutocomplete from './MetierAutocompleteSimple';
 
 const SearchForm = ({ onSearch }) => {
   const [keywords, setKeywords] = useState('');
@@ -129,6 +130,11 @@ const SearchForm = ({ onSearch }) => {
           distance={distance}
           setDistance={setDistance}
         />
+
+        {/* TEST VISIBILITE */}
+        <div className="mt-6 p-8 bg-red-500 text-white text-2xl font-bold border-8 border-black">
+          ⚠️ SI VOUS VOYEZ CECI, LE CODE FONCTIONNE ! ⚠️
+        </div>
 
         {/* Recherche par métier (Code ROME) */}
         <div className="mt-6">
