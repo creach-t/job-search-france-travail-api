@@ -1,143 +1,288 @@
-# Job Search France Travail API
+# Job Search - France Travail API
 
-Application React de recherche d'emploi personnalisée pour les développeurs web utilisant l'API France Travail.
+> Application web de recherche d'offres d'emploi utilisant l'API officielle de France Travail (anciennement Pôle Emploi)
 
-## Architecture
+[![React](https://img.shields.io/badge/React-18.2.0-61DAFB?logo=react)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js)](https://nodejs.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3.5-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
-L'application utilise une architecture en trois parties :
+## 🎯 Fonctionnalités
 
-1. **Frontend** : Application React utilisant Tailwind CSS pour l'interface utilisateur
-2. **Serveur intermédiaire** : Serveur Node.js qui gère l'authentification OAuth 2.0 avec l'API France Travail
-3. **Nginx** : Serveur web qui sert les fichiers statiques du frontend en production
+- ✅ **Recherche avancée** d'offres d'emploi avec filtres multiples
+- 🗺️ **Géolocalisation** avec autocomplétion des communes françaises
+- 📍 **Distance paramétrable** pour la recherche géographique
+- 💾 **Sauvegarde locale** des offres favorites
+- 📱 **Design responsive** adapté mobile/tablette/desktop
+- 🔍 **Détails complets** des offres avec bouton de postulation
+- ⚡ **Cache intelligent** avec React Query
+- 🔒 **Sécurisé** - Les credentials API restent côté serveur
 
-## Prérequis
+## 🚀 Installation rapide
 
-- Node.js (v14+)
-- Compte développeur France Travail avec identifiants OAuth
-- Docker et Docker Compose (pour la production)
+### Prérequis
 
-## Installation
+- Node.js >= 16.x
+- npm >= 8.x
+- Compte développeur France Travail (pour les credentials API)
 
-1. Clonez le dépôt :
+### Configuration
+
+1. **Cloner le repository**
 ```bash
 git clone https://github.com/creach-t/job-search-france-travail-api.git
 cd job-search-france-travail-api
 ```
 
-2. Installez les dépendances :
+2. **Installer les dépendances**
 ```bash
 npm install
 ```
 
-3. Installez les dépendances du serveur :
-```bash
-npm install cors dotenv express
+3. **Configurer les variables d'environnement**
+
+Créer un fichier `.env` à la racine:
+```env
+REACT_APP_PORT=3000
+SERVER_PORT=4059
+REACT_APP_FRONTEND_URL=http://localhost:3000
+REACT_APP_API_URL=http://localhost:4059/api
+NODE_ENV=development
 ```
 
-4. Configurez les variables d'environnement :
-```bash
-# Créez le fichier .env à la racine
-cp .env.example .env
-# Créez le fichier .env dans le dossier server
-cp server/.env.example server/.env
+Créer un fichier `server/.env`:
+```env
+FT_CLIENT_ID=votre_client_id
+FT_CLIENT_SECRET=votre_client_secret
+FT_SCOPE=api_offresdemploiv2 o2dsoffre
+FT_TOKEN_URL=https://entreprise.francetravail.fr/connexion/oauth2/access_token
+FT_BASE_URL=https://api.francetravail.io/
 ```
 
-5. Éditez les fichiers `.env` et `server/.env` avec vos identifiants France Travail
-   
-## Utilisation
+> 💡 **Obtenir des credentials API:** Rendez-vous sur [francetravail.io](https://francetravail.io/) pour créer un compte développeur et obtenir vos credentials.
 
-### Développement
-
-Pour lancer l'application en mode développement (frontend + serveur) :
-
+4. **Lancer l'application**
 ```bash
 npm run dev
 ```
 
-Cela lancera :
-- Le serveur backend sur le port 4059, accessible sur http://localhost:4059
-- L'application React sur le port 3000, accessible sur http://localhost:3000
+L'application sera accessible sur:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:4059
 
-### Production avec Docker
+## 🐳 Déploiement Docker
 
-Pour déployer en production avec Docker :
+### Production
 
-1. Assurez-vous d'avoir Docker et Docker Compose installés
-
-2. Construisez l'application React :
+1. **Build de l'application**
 ```bash
 npm run build
 ```
 
-3. Utilisez le script de démarrage pour lancer les conteneurs Docker :
+2. **Lancer les containers**
 ```bash
-chmod +x start-docker.sh
-./start-docker.sh
+docker-compose up -d
 ```
 
-L'application sera disponible sur :
-- Frontend : http://localhost:4060 (servi par Nginx)
-- Backend API : http://localhost:4059
+Services déployés:
+- Frontend (Nginx): Port 4060
+- Backend (Node.js): Port 4059
+- Traefik pour SSL automatique (Let's Encrypt)
 
-#### Configuration Docker
+## 📁 Structure du projet
 
-La configuration Docker comprend deux services :
-- `backend` : Serveur Node.js qui gère l'API
-- `frontend` : Serveur Nginx qui sert l'application React
+```
+job-search-france-travail-api/
+├── src/                        # Code source frontend
+│   ├── components/             # Composants React
+│   │   ├── JobCard/           # Carte d'offre d'emploi
+│   │   ├── JobList/           # Liste des offres
+│   │   ├── SearchForm/        # Formulaire de recherche
+│   │   ├── Navbar/            # Barre de navigation
+│   │   └── Footer/            # Pied de page
+│   ├── pages/                 # Pages principales
+│   │   ├── HomePage.js        # Page d'accueil
+│   │   ├── JobDetailsPage.js  # Détails d'une offre
+│   │   └── SavedJobsPage.js   # Offres sauvegardées
+│   ├── services/              # Services API
+│   │   ├── api.js            # Client API France Travail
+│   │   └── communeService.js # Service de géolocalisation
+│   ├── hooks/                 # Custom React hooks
+│   └── utils/                 # Utilitaires et constantes
+├── server/                    # Code source backend
+│   ├── server.js             # Serveur Express
+│   └── routes/               # Routes API
+├── public/                    # Fichiers statiques
+├── docker-compose.yml         # Configuration Docker
+└── package.json              # Dépendances npm
+```
 
-Pour arrêter l'application :
+## 🛠️ Technologies utilisées
+
+### Frontend
+- **React 18** - Framework UI
+- **React Router** - Routing SPA
+- **React Query** - Gestion du cache et des requêtes
+- **TailwindCSS** - Framework CSS utilitaire
+- **Headless UI** - Composants accessibles
+- **Heroicons** - Icônes
+- **Axios** - Client HTTP
+
+### Backend
+- **Node.js** - Runtime JavaScript
+- **Express** - Framework web
+- **Axios** - Appels API externes
+- **CORS** - Gestion cross-origin
+- **dotenv** - Variables d'environnement
+
+### Infrastructure
+- **Docker** - Containerisation
+- **Docker Compose** - Orchestration
+- **Nginx** - Serveur web (production)
+- **Traefik** - Reverse proxy avec SSL
+
+## 📚 APIs externes
+
+### API France Travail
+- **Documentation:** [francetravail.io](https://francetravail.io/produits-partages/catalogue)
+- **Endpoint:** `https://api.francetravail.io/partenaire/offresdemploi/v2`
+- **Authentification:** OAuth2 Client Credentials
+- **Fonctionnalités:** Recherche d'offres, détails des offres
+
+### API Geo
+- **Documentation:** [geo.api.gouv.fr](https://geo.api.gouv.fr/decoupage-administratif/communes)
+- **Endpoint:** `https://geo.api.gouv.fr/communes`
+- **Authentification:** Aucune (publique)
+- **Fonctionnalités:** Recherche de communes, codes INSEE
+
+## 🎨 Fonctionnalités détaillées
+
+### Recherche d'offres
+- **Mots-clés** - Recherche textuelle flexible
+- **Localisation** - Autocomplétion des communes françaises avec codes INSEE
+- **Distance** - Rayon de recherche de 10 à 200 km
+- **Expérience** - Débutant, expérimenté, cadre...
+- **Type de contrat** - CDI, CDD, alternance, stage...
+- **Qualification** - Non cadre, cadre, agent de maîtrise...
+- **Temps de travail** - Temps plein / temps partiel
+
+### Affichage des résultats
+- Liste des offres avec aperçu
+- Tags colorés pour identification rapide
+- Indicateurs spéciaux:
+  - 🔥 Offre en tension (manque de candidats)
+  - ♿ Accessible aux travailleurs handicapés
+  - 🎓 Alternance disponible
+
+### Détails de l'offre
+- Description complète du poste
+- Informations entreprise
+- Localisation avec carte interactive
+- Salaire et avantages
+- Compétences requises
+- Formations demandées
+- Conditions de travail
+- Bouton de postulation directe
+
+### Sauvegarde
+- Enregistrement local des offres favorites
+- Persistance avec localStorage
+- Page dédiée aux offres sauvegardées
+- Synchronisation automatique
+
+## 🔧 Scripts disponibles
+
 ```bash
-docker-compose down
+# Développement
+npm start              # Lance le frontend uniquement
+npm run server         # Lance le backend avec hot reload
+npm run dev            # Lance frontend + backend en parallèle
+
+# Build
+npm run build          # Build de production optimisé
+
+# Tests
+npm test               # Lance les tests
+
+# Docker
+docker-compose up -d                  # Lance tous les services
+docker-compose logs -f backend        # Affiche les logs du backend
+docker-compose down                   # Arrête tous les services
+docker-compose restart backend        # Redémarre le backend
 ```
 
-## Configuration Nginx
+## 🐛 Problèmes connus
 
-La configuration Nginx se trouve dans le fichier `nginx/nginx.conf`. Cette configuration :
-- Sert l'application React sur le port 4060
-- Redirige les requêtes API vers le serveur backend sur le port 4059
-- Configure les en-têtes pour une mise en cache optimale des fichiers statiques
+### Erreur 431 - Request Header Too Large
+**Cause:** Paramètres de recherche trop longs
 
-Si vous souhaitez modifier les ports ou d'autres paramètres Nginx, modifiez ce fichier.
+**Solution:** L'application limite automatiquement:
+- Mots-clés: 20 caractères max
+- Compétences: 2 sélections max
 
-## Fonctionnalités
+### Token OAuth2 expiré
+**Cause:** Token France Travail valide 30 minutes
 
-- Recherche d'offres d'emploi pour les développeurs web
-- Filtres par localisation, type de contrat, expérience, etc.
-- Sauvegarde des offres préférées
-- Autocomplétion des communes françaises
-- Visualisation détaillée des offres
+**Solution:** Renouvellement automatique avec marge de 60 secondes
 
-## Structure du projet
+## 🚧 Améliorations futures
 
-```
-├── build               # Fichiers construits de l'application React
-├── nginx               # Configuration Nginx
-│   └── nginx.conf      # Configuration du serveur web
-├── public              # Fichiers statiques
-├── server              # Serveur intermédiaire Node.js
-│   ├── server.js       # Implémentation du serveur
-│   └── .env.example    # Exemple de variables d'environnement
-├── src                 # Code source React
-│   ├── components      # Composants React
-│   ├── context         # Contextes React (pour les états globaux)
-│   ├── hooks           # Hooks personnalisés
-│   ├── pages           # Pages principales
-│   ├── services        # Services pour les appels API
-│   └── utils           # Utilitaires et constantes
-├── .env.example        # Exemple de variables d'environnement
-├── .env.docker         # Variables d'environnement pour Docker
-├── Dockerfile          # Configuration pour Docker
-├── docker-compose.yml  # Configuration Docker Compose
-└── start-docker.sh     # Script pour démarrer avec Docker
-```
+### Fonctionnalités
+- [ ] Pagination des résultats
+- [ ] Filtres supplémentaires (secteur d'activité, salaire min/max)
+- [ ] Historique des recherches
+- [ ] Notifications pour nouvelles offres
+- [ ] Export des résultats (PDF, CSV)
+- [ ] Mode sombre
+- [ ] Multilingue (français, anglais)
 
-## API
+### Technique
+- [ ] Tests unitaires et E2E
+- [ ] CI/CD avec GitHub Actions
+- [ ] Service Worker pour mode offline
+- [ ] Optimisation des performances (lazy loading)
+- [ ] Accessibilité WCAG 2.1 AA
+- [ ] Analytics (respect RGPD)
 
-L'application utilise :
+### Backend
+- [ ] Rate limiting
+- [ ] Authentification utilisateur
+- [ ] Base de données pour favoris partagés
+- [ ] API REST documentée (Swagger)
+- [ ] Logs structurés
 
-1. **API France Travail** : Pour les offres d'emploi
-2. **API Geo.gouv.fr** : Pour les données géographiques (communes)
+## 📄 Licence
 
-## License
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-MIT
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! Pour contribuer:
+
+1. Fork le projet
+2. Créer une branche (`git checkout -b feature/AmazingFeature`)
+3. Commit les changements (`git commit -m 'Add AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+## 🙏 Remerciements
+
+- [France Travail](https://francetravail.io/) pour l'accès à l'API
+- [API Geo](https://geo.api.gouv.fr/) pour les données géographiques
+- La communauté React et TailwindCSS
+
+## 📞 Support
+
+Pour toute question ou problème:
+- 🐛 [Créer une issue](https://github.com/creach-t/job-search-france-travail-api/issues)
+- 💬 [Discussions](https://github.com/creach-t/job-search-france-travail-api/discussions)
+
+---
+
+**Sources de documentation:**
+- [API France Travail - Offres d'emploi](https://francetravail.io/data/api/offres-emploi)
+- [API Geo - Découpage administratif](https://geo.api.gouv.fr/decoupage-administratif)
+- [API.gouv.fr - France Travail](https://api.gouv.fr/producteurs/france-travail)
+- [API.gouv.fr - API Geo](https://api.gouv.fr/les-api/api-geo)
+
+Fait avec ❤️ en France
