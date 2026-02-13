@@ -154,9 +154,9 @@ async function makeApiCall(url, params, token, retryCount = 0) {
 // Modification de la route de recherche
 app.post('/api/jobs/search', authMiddleware, async (req, res) => {
   try {
-    const { keywords, location, distance, experience, 
-            contractType, qualification, workingHours } = req.body;
-    
+    const { keywords, location, distance, experience,
+            contractType, qualification, workingHours, codeROME } = req.body;
+
     const params = {
       motsCles: keywords,
       commune: location,
@@ -166,12 +166,25 @@ app.post('/api/jobs/search', authMiddleware, async (req, res) => {
       experience
     };
 
+    // Ajouter le code ROME si présent (recherche précise par métier)
+    if (codeROME) {
+      params.codeROME = codeROME;
+      console.log(`Recherche avec code ROME: ${codeROME}`);
+    }
+
+    // Nettoyer les paramètres undefined
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined || params[key] === null || params[key] === '') {
+        delete params[key];
+      }
+    });
+
     const data = await makeApiCall(
       `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/offresdemploi/v2/offres/search`,
       params,
       req.token
     );
-    
+
     res.json(data);
   } catch (error) {
     console.error('Erreur recherche emplois:', error.response?.data || error.message);
@@ -296,6 +309,90 @@ app.get('/api/communes/:code', async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la récupération de la commune:', error.response?.data || error.message);
     res.status(404).json({ message: 'Commune introuvable' });
+  }
+});
+
+// ============================================
+// Routes API ROME (Métiers)
+// ============================================
+
+// Métiers populaires pré-définis pour le développement
+const METIERS_POPULAIRES = [
+  { code: 'M1805', libelle: 'Études et développement informatique' },
+  { code: 'M1806', libelle: 'Conseil et maîtrise d\'ouvrage en systèmes d\'information' },
+  { code: 'M1810', libelle: 'Production et exploitation de systèmes d\'information' },
+  { code: 'M1803', libelle: 'Direction des systèmes d\'information' },
+  { code: 'M1801', libelle: 'Administration de systèmes d\'information' }
+];
+
+// Recherche de métiers par nom
+app.get('/api/rome/metiers', authMiddleware, async (req, res) => {
+  const { query } = req.query;
+
+  // Si pas de query ou trop courte, renvoyer les métiers populaires
+  if (!query || query.trim().length < 2) {
+    return res.json(METIERS_POPULAIRES);
+  }
+
+  try {
+    // Appel à l'API ROME pour rechercher des appellations de métiers
+    const response = await axios.get(
+      `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/rome/v1/appellation`,
+      {
+        params: {
+          libelle: query,
+          champs: 'code,libelle'
+        },
+        headers: {
+          'Authorization': `Bearer ${req.token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Transformer et dédupliquer les résultats par code ROME
+    const metiers = response.data || [];
+    const uniqueMetiers = {};
+
+    metiers.forEach(metier => {
+      if (!uniqueMetiers[metier.code]) {
+        uniqueMetiers[metier.code] = {
+          code: metier.code,
+          libelle: metier.libelle
+        };
+      }
+    });
+
+    const results = Object.values(uniqueMetiers).slice(0, 10);
+
+    res.json(results.length > 0 ? results : METIERS_POPULAIRES);
+  } catch (error) {
+    console.error('Erreur API ROME:', error.response?.data || error.message);
+
+    // En cas d'erreur, renvoyer les métiers populaires
+    res.json(METIERS_POPULAIRES);
+  }
+});
+
+// Détails d'un métier par code ROME
+app.get('/api/rome/metiers/:code', authMiddleware, async (req, res) => {
+  const { code } = req.params;
+
+  try {
+    const response = await axios.get(
+      `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/rome/v1/metier/${code}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${req.token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Erreur récupération métier ${code}:`, error.response?.data || error.message);
+    res.status(404).json({ message: 'Métier introuvable' });
   }
 });
 

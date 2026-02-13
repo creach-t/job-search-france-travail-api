@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:francetravail.io)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

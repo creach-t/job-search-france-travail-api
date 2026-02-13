@@ -2,6 +2,7 @@ import { useState } from 'react';
 import MainSearchFields from './MainSearchFields';
 import AdvancedSearchFields from './AdvancedSearchFields';
 import SearchButton from './SearchButton';
+import MetierAutocomplete from './MetierAutocomplete';
 
 const SearchForm = ({ onSearch }) => {
   const [keywords, setKeywords] = useState('');
@@ -12,6 +13,7 @@ const SearchForm = ({ onSearch }) => {
   const [qualification, setQualification] = useState('');
   const [workingHours, setWorkingHours] = useState('');
   const [selectedSkills, setSelectedSkills] = useState([]);
+  const [selectedMetier, setSelectedMetier] = useState(null);
   const [advancedSearch, setAdvancedSearch] = useState(false);
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -63,17 +65,22 @@ const SearchForm = ({ onSearch }) => {
       experience,
       contractType
     };
-    
+
     // Ajouter le code INSEE de la commune si disponible, sinon mettre null
     if (selectedCommune) {
       searchParams.location = selectedCommune.code; // Code INSEE pour l'API France Travail
     }
-    
+
+    // Ajouter le code ROME si un métier est sélectionné
+    if (selectedMetier) {
+      searchParams.codeROME = selectedMetier.code;
+    }
+
     // Ajouter les nouveaux paramètres s'ils sont sélectionnés
     if (qualification) {
       searchParams.qualification = qualification;
     }
-    
+
     if (workingHours) {
       searchParams.workingHours = workingHours;
     }
@@ -122,7 +129,15 @@ const SearchForm = ({ onSearch }) => {
           distance={distance}
           setDistance={setDistance}
         />
-        
+
+        {/* Recherche par métier (Code ROME) */}
+        <div className="mt-6">
+          <MetierAutocomplete
+            selectedMetier={selectedMetier}
+            onSelect={setSelectedMetier}
+          />
+        </div>
+
         <div className="mt-4">
           <button
             type="button"
