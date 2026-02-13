@@ -16,10 +16,32 @@ const JobList = ({ jobs }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {jobs.map((job) => (
-        <JobCard key={job.id} job={job} />
-      ))}
+    <div>
+      {/* Compteur de résultats */}
+      <div className="mb-6 px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-ft-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-900">{jobs.length}</span> offre{jobs.length > 1 ? 's' : ''} trouvée{jobs.length > 1 ? 's' : ''}
+            </p>
+          </div>
+          {jobs.length === 20 && (
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
+              Affichage limité à 20 résultats
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Grille des offres */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {jobs.map((job) => (
+          <JobCard key={job.id} job={job} />
+        ))}
+      </div>
     </div>
   );
 };
