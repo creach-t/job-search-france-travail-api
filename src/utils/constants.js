@@ -39,5 +39,5 @@ export const API = {
 export const DEFAULTS = {
   SEARCH_LIMIT: 20,
   DEFAULT_DISTANCE: '10',
-  DEFAULT_KEYWORDS: 'dev'
+  DEFAULT_KEYWORDS: '' // Pas de mot-clé par défaut - laisse l'utilisateur choisir
 };

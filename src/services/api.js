@@ -57,7 +57,8 @@ const buildSearchParams = (params) => {
   const { keywords, location, distance, experience, contractType, qualification, workingHours, codeROME } = params;
 
   return {
-    keywords: keywords || DEFAULTS.DEFAULT_KEYWORDS,
+    // Si un code ROME est fourni, les mots-clés deviennent optionnels
+    keywords: keywords || (codeROME ? undefined : DEFAULTS.DEFAULT_KEYWORDS),
     location: location || undefined,
     distance: distance || DEFAULTS.DEFAULT_DISTANCE,
     experience: experience || undefined,

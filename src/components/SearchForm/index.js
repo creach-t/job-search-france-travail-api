@@ -51,13 +51,12 @@ const SearchForm = ({ onSearch }) => {
         finalKeywords = `${finalKeywords},${skillsKeywords}`;
       }
     }
-    
-    // Si aucun mot-clé n'est fourni, utiliser "dev" comme mot-clé par défaut
-    finalKeywords = finalKeywords || 'dev';
-    
-    // S'assurer que les mots-clés ne dépassent pas 20 caractères
-    finalKeywords = finalKeywords.substring(0, 20);
-    
+
+    // S'assurer que les mots-clés ne dépassent pas 20 caractères (si présents)
+    if (finalKeywords) {
+      finalKeywords = finalKeywords.substring(0, 20);
+    }
+
     // Construire les paramètres de recherche
     const searchParams = {
       keywords: finalKeywords,

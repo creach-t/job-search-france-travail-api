@@ -180,11 +180,15 @@ app.post('/api/jobs/search', authMiddleware, async (req, res) => {
       }
     });
 
+    console.log('📊 Paramètres finaux:', JSON.stringify(params));
+
     const data = await makeApiCall(
       `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/offresdemploi/v2/offres/search`,
       params,
       req.token
     );
+
+    console.log(`✅ Résultats: ${data.resultats?.length || 0} offres trouvées`);
 
     res.json(data);
   } catch (error) {
