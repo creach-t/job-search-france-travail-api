@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Combobox } from '@headlessui/react';
 import { MagnifyingGlassIcon, BriefcaseIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/20/solid';
+import { searchMetiers as apiSearchMetiers } from '../../services/api';
 
 const MetierAutocomplete = ({ selectedMetier, onSelect }) => {
   const [query, setQuery] = useState('');
@@ -9,16 +10,10 @@ const MetierAutocomplete = ({ selectedMetier, onSelect }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const searchMetiers = async () => {
+    const fetchMetiers = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/rome/metiers?query=${encodeURIComponent(query)}`);
-
-        if (!response.ok) {
-          throw new Error('Erreur lors de la recherche');
-        }
-
-        const data = await response.json();
+        const data = await apiSearchMetiers(query);
         setMetiers(data);
       } catch (error) {
         console.error('Erreur recherche métiers:', error);
@@ -30,10 +25,10 @@ const MetierAutocomplete = ({ selectedMetier, onSelect }) => {
 
     if (query.length === 0) {
       // Charger les métiers populaires par défaut
-      searchMetiers();
+      fetchMetiers();
     } else if (query.length >= 2) {
       // Debounce: attendre que l'utilisateur ait fini de taper
-      const debounce = setTimeout(searchMetiers, 300);
+      const debounce = setTimeout(fetchMetiers, 300);
       return () => clearTimeout(debounce);
     }
   }, [query]);

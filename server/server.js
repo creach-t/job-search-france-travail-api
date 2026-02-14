@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 // Chargement des variables d'environnement du fichier à la racine en premier (si existe)
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -316,14 +317,68 @@ app.get('/api/communes/:code', async (req, res) => {
 // Routes API ROME (Métiers)
 // ============================================
 
-// Métiers populaires pré-définis pour le développement
+// Charger tous les codes ROME depuis le fichier JSON
+const TOUS_LES_METIERS = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'rome-codes.json'), 'utf8')
+);
+
+// Métiers populaires pré-définis (tous domaines confondus) - pour suggestion rapide
 const METIERS_POPULAIRES = [
+  // Informatique & Tech
   { code: 'M1805', libelle: 'Études et développement informatique' },
   { code: 'M1806', libelle: 'Conseil et maîtrise d\'ouvrage en systèmes d\'information' },
   { code: 'M1810', libelle: 'Production et exploitation de systèmes d\'information' },
-  { code: 'M1803', libelle: 'Direction des systèmes d\'information' },
-  { code: 'M1801', libelle: 'Administration de systèmes d\'information' }
+  { code: 'M1802', libelle: 'Expertise et support en systèmes d\'information' },
+
+  // Commerce & Vente
+  { code: 'D1401', libelle: 'Assistanat commercial' },
+  { code: 'D1402', libelle: 'Relation commerciale grands comptes et entreprises' },
+  { code: 'D1403', libelle: 'Relation commerciale auprès de particuliers' },
+  { code: 'D1407', libelle: 'Relation technico-commerciale' },
+
+  // Comptabilité & Gestion
+  { code: 'M1203', libelle: 'Comptabilité' },
+  { code: 'M1204', libelle: 'Contrôle de gestion' },
+  { code: 'M1205', libelle: 'Direction administrative et financière' },
+
+  // Ressources Humaines
+  { code: 'M1501', libelle: 'Assistanat en ressources humaines' },
+  { code: 'M1502', libelle: 'Développement des ressources humaines' },
+
+  // Marketing & Communication
+  { code: 'E1103', libelle: 'Communication' },
+  { code: 'M1705', libelle: 'Marketing' },
+
+  // Santé
+  { code: 'J1506', libelle: 'Soins infirmiers généralistes' },
+  { code: 'J1502', libelle: 'Coordination de services médicaux ou paramédicaux' },
+
+  // Enseignement
+  { code: 'K2107', libelle: 'Enseignement général du second degré' },
+  { code: 'K2106', libelle: 'Enseignement des écoles' },
+
+  // Bâtiment & Construction
+  { code: 'F1601', libelle: 'Application et décoration en plâtre, stuc et staff' },
+  { code: 'F1602', libelle: 'Électricité bâtiment' },
+  { code: 'F1603', libelle: 'Installation d\'équipements sanitaires et thermiques' },
+
+  // Logistique & Transport
+  { code: 'N1301', libelle: 'Conception et organisation de la chaîne logistique' },
+  { code: 'N4105', libelle: 'Conduite et livraison par tournées sur courte distance' },
+
+  // Hôtellerie & Restauration
+  { code: 'G1602', libelle: 'Personnel de cuisine' },
+  { code: 'G1603', libelle: 'Personnel polyvalent en restauration' },
+
+  // Secrétariat & Administration
+  { code: 'M1607', libelle: 'Secrétariat' },
+  { code: 'M1605', libelle: 'Assistanat technique et administratif' }
 ];
+
+// Fonction pour normaliser les chaînes (enlever les accents)
+function normalizeString(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 // Recherche de métiers par nom
 app.get('/api/rome/metiers', authMiddleware, async (req, res) => {
@@ -335,35 +390,14 @@ app.get('/api/rome/metiers', authMiddleware, async (req, res) => {
   }
 
   try {
-    // Appel à l'API ROME pour rechercher des appellations de métiers
-    const response = await axios.get(
-      `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/rome/v1/appellation`,
-      {
-        params: {
-          libelle: query,
-          champs: 'code,libelle'
-        },
-        headers: {
-          'Authorization': `Bearer ${req.token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Recherche locale dans tous les codes ROME (insensible aux accents)
+    const searchTerm = normalizeString(query.trim());
 
-    // Transformer et dédupliquer les résultats par code ROME
-    const metiers = response.data || [];
-    const uniqueMetiers = {};
-
-    metiers.forEach(metier => {
-      if (!uniqueMetiers[metier.code]) {
-        uniqueMetiers[metier.code] = {
-          code: metier.code,
-          libelle: metier.libelle
-        };
-      }
-    });
-
-    const results = Object.values(uniqueMetiers).slice(0, 10);
+    const results = TOUS_LES_METIERS.filter(metier => {
+      const libelle = normalizeString(metier.libelle);
+      const code = metier.code.toLowerCase();
+      return libelle.includes(searchTerm) || code.includes(searchTerm);
+    }).slice(0, 20); // Limiter à 20 résultats
 
     res.json(results.length > 0 ? results : METIERS_POPULAIRES);
   } catch (error) {

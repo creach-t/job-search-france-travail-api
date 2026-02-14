@@ -10,7 +10,9 @@
       "Bash(netstat:*)",
       "Bash(npm run build:*)",
       "Bash(taskkill:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(python -m json.tool:*)"
     ]
   }
 }

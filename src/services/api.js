@@ -54,8 +54,8 @@ export const authenticate = async () => {
  * @returns {Object} - Paramètres formatés pour l'API
  */
 const buildSearchParams = (params) => {
-  const { keywords, location, distance, experience, contractType, qualification, workingHours } = params;
-  
+  const { keywords, location, distance, experience, contractType, qualification, workingHours, codeROME } = params;
+
   return {
     keywords: keywords || DEFAULTS.DEFAULT_KEYWORDS,
     location: location || undefined,
@@ -64,6 +64,7 @@ const buildSearchParams = (params) => {
     contractType: contractType || undefined,
     qualification: qualification || undefined,
     workingHours: workingHours || undefined,
+    codeROME: codeROME || undefined,
     limit: DEFAULTS.SEARCH_LIMIT
   };
 };
@@ -148,11 +149,32 @@ export const getJobById = async (id) => {
   }
 };
 
+/**
+ * Recherche des métiers dans le référentiel ROME
+ * @param {string} query - Terme de recherche (min 2 caractères)
+ * @returns {Promise<Array>} - Liste des métiers correspondants
+ */
+export const searchMetiers = async (query = '') => {
+  try {
+    const url = query.trim().length >= 2
+      ? `${API.BASE_URL}/rome/metiers?query=${encodeURIComponent(query)}`
+      : `${API.BASE_URL}/rome/metiers`;
+
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la recherche de métiers:', error);
+    // En cas d'erreur, retourner une liste vide plutôt que de lancer une erreur
+    return [];
+  }
+};
+
 // Service API exporté
 const apiService = {
   authenticate,
   searchJobs,
-  getJobById
+  getJobById,
+  searchMetiers
 };
 
 export default apiService;
