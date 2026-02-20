@@ -131,16 +131,10 @@ jobs:
             export IMAGE_TAG
             export GITHUB_REPOSITORY
 
-            # Pull la nouvelle image
+            # Pull la nouvelle image (build React déjà baked dedans)
             docker compose -f docker-compose.prod.yml pull
 
-            # Extraire le build React depuis l'image vers ./build sur le VPS
-            docker create --name tmp_build ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}
-            rm -rf ./build
-            docker cp tmp_build:/app/build/. ./build/
-            docker rm tmp_build
-
-            # Redémarrage zero-downtime
+            # Redémarrage : le backend sert API + React via Express en production
             docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
             # Vérifier que les services sont healthy
