@@ -2,18 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { searchJobs, getJobById } from '../services/api';
 
 // Hook personnalisé pour rechercher des offres d'emploi
-export const useSearchJobs = (searchParams) => {
+export const useSearchJobs = (searchParams, page = 0, pageSize = 50) => {
   return useQuery(
-    ['jobs', searchParams],
-    () => searchJobs(searchParams),
+    ['jobs', searchParams, page, pageSize],
+    () => searchJobs(searchParams, page, pageSize),
     {
-      // Ne pas exécuter la requête si searchParams est null (avant la première recherche)
       enabled: !!searchParams,
-      // Conserver les données précédentes pendant le chargement
       keepPreviousData: true,
-      // Durée de mise en cache des résultats (5 minutes)
       staleTime: 5 * 60 * 1000,
-      // Gestionnaire d'erreur
       onError: (error) => {
         console.error('Erreur lors de la recherche d\'emplois:', error);
       },

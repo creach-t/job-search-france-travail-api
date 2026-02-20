@@ -39,5 +39,10 @@ export const API = {
 export const DEFAULTS = {
   SEARCH_LIMIT: 20,
   DEFAULT_DISTANCE: '10',
-  DEFAULT_KEYWORDS: '' // Pas de mot-clé par défaut - laisse l'utilisateur choisir
+  DEFAULT_KEYWORDS: '',
+  PAGE_SIZE: 50,        // Taille de page par défaut
+  MAX_TOTAL: 1150       // Limite navigable (range max 0-1149)
 };
+
+// Options de nombre d'offres par page
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];

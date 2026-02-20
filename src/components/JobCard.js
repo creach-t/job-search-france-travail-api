@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ApplyButton from './JobCard/ApplyButton';
+import { formatSalaryToMonthly } from '../utils/salaryUtils';
 
 const JobCard = ({ job }) => {
   const [isSaved, setIsSaved] = useState(false);
@@ -87,11 +88,9 @@ const JobCard = ({ job }) => {
         </p>
 
         <div className="mt-4 flex justify-between items-center">
-          {job.salaire?.libelle ? (
-            <span className="text-sm font-medium text-gray-900">{job.salaire.libelle}</span>
-          ) : (
-            <span className="text-sm font-medium text-gray-500">Salaire non précisé</span>
-          )}
+          <span className="text-sm font-medium text-gray-900">
+            💰 {formatSalaryToMonthly(job.salaire)}
+          </span>
           <span className="text-xs text-gray-500">
             Publiée le {new Date(job.dateCreation).toLocaleDateString('fr-FR')}
           </span>

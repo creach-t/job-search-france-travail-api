@@ -71,7 +71,7 @@ const CommuneSearch = ({ onSelect }) => {
   // Sélection d'une commune dans la liste
   const handleSelectCommune = (commune) => {
     setSelectedCommune(commune);
-    setQuery(commune.nom);
+    setQuery(''); // Vider le champ après sélection
     setShowSuggestions(false);
     onSelect(commune);
   };
@@ -80,13 +80,13 @@ const CommuneSearch = ({ onSelect }) => {
   const handleGeolocation = async () => {
     setGeoLoading(true);
     setGeoError('');
-    
+
     try {
       const position = await getCurrentPosition();
       const commune = await findCommuneByCoordinates(position.latitude, position.longitude);
-      
+
       setSelectedCommune(commune);
-      setQuery(commune.nom);
+      setQuery(''); // Vider le champ après géolocalisation
       onSelect(commune);
     } catch (error) {
       console.error('Erreur de géolocalisation:', error);
@@ -105,7 +105,7 @@ const CommuneSearch = ({ onSelect }) => {
           onChange={handleInputChange}
           onFocus={() => setShowSuggestions(true)}
           placeholder="Saisissez une ville..."
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-ft-blue focus:ring-ft-blue sm:text-sm pr-10"
+          className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-ft-blue focus:ring-2 focus:ring-ft-blue/20 transition-all pr-10"
         />
         <button
           type="button"

@@ -140,7 +140,13 @@ async function makeApiCall(url, params, token, retryCount = 0) {
         'Content-Type': 'application/json'
       }
     });
-    return response.data;
+    // Extraire le total depuis Content-Range (ex: "offres 0-149/1247")
+    const contentRange = response.headers['content-range'] || '';
+    console.log(`📊 [Content-Range] Header reçu: "${contentRange}"`);
+    const totalMatch = contentRange.match(/\/(\d+)$/);
+    const total = totalMatch ? parseInt(totalMatch[1], 10) : null;
+    console.log(`📊 [Content-Range] Total extrait: ${total}`);
+    return { data: response.data, total };
   } catch (error) {
     if (error.response?.status === 401 && retryCount === 0) {
       // Token invalide - on réessaie une fois avec un nouveau token
@@ -155,22 +161,37 @@ async function makeApiCall(url, params, token, retryCount = 0) {
 // Modification de la route de recherche
 app.post('/api/jobs/search', authMiddleware, async (req, res) => {
   try {
+    console.log('📥 [Backend] Body reçu du frontend:', JSON.stringify(req.body, null, 2));
+
     const { keywords, location, distance, experience,
-            contractType, qualification, workingHours, codeROME } = req.body;
+            contractType, qualification, tempsPlein, codeROME, salaryMin, range } = req.body;
+
+    console.log('💰 [Backend] salaryMin extrait du body:', salaryMin, 'Type:', typeof salaryMin);
 
     const params = {
       motsCles: keywords,
       commune: location,
+      // distance = '0' = commune exacte, ne pas remplacer par || défaut car '0' est falsy
+      distance: distance !== undefined && distance !== '' ? distance : undefined,
       typeContrat: contractType,
       qualification,
-      tempsPlein: workingHours,
-      experience
+      tempsPlein: tempsPlein,
+      experience,
+      range: range || '0-49'
     };
+
+    console.log(`📄 [Backend] Range reçu du frontend: "${range}" → utilisé: "${params.range}"`);
 
     // Ajouter le code ROME si présent (recherche précise par métier)
     if (codeROME) {
       params.codeROME = codeROME;
-      console.log(`Recherche avec code ROME: ${codeROME}`);
+      console.log(`✅ Recherche avec code ROME: ${codeROME}`);
+    }
+
+    // Note: Le filtre par salaire n'est pas supporté par l'API France Travail
+    // Le filtrage est effectué côté client (frontend)
+    if (salaryMin) {
+      console.log(`💰 [Backend] Salaire demandé: ${salaryMin}€ (filtrage côté client)`);
     }
 
     // Nettoyer les paramètres undefined
@@ -182,15 +203,16 @@ app.post('/api/jobs/search', authMiddleware, async (req, res) => {
 
     console.log('📊 Paramètres finaux:', JSON.stringify(params));
 
-    const data = await makeApiCall(
+    const { data, total } = await makeApiCall(
       `${FRANCE_TRAVAIL_API.BASE_URL}partenaire/offresdemploi/v2/offres/search`,
       params,
       req.token
     );
 
-    console.log(`✅ Résultats: ${data.resultats?.length || 0} offres trouvées`);
+    const count = data.resultats?.length || 0;
+    console.log(`✅ Résultats: ${count} offres trouvées (total API: ${total ?? 'inconnu'})`);
 
-    res.json(data);
+    res.json({ ...data, total });
   } catch (error) {
     console.error('Erreur recherche emplois:', error.response?.data || error.message);
     res.status(error.response?.status || 500).json({

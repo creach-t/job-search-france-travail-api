@@ -2,14 +2,14 @@ import React from 'react';
 
 const SearchButton = ({ isSearching }) => {
   return (
-    <div className="mt-6">
+    <div className="mt-8">
       <button
         type="submit"
         disabled={isSearching}
-        className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-          isSearching 
-            ? 'bg-gray-400 cursor-not-allowed' 
-            : 'bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue'
+        className={`w-full flex justify-center items-center py-3.5 px-6 border border-transparent rounded-xl shadow-lg text-base font-semibold text-white transition-all duration-200 ${
+          isSearching
+            ? 'bg-gray-400 cursor-not-allowed'
+            : 'bg-gradient-to-r from-ft-blue to-blue-600 hover:from-ft-darkblue hover:to-blue-700 hover:shadow-xl hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue'
         }`}
       >
         {isSearching ? (
@@ -20,7 +20,14 @@ const SearchButton = ({ isSearching }) => {
             </svg>
             Recherche en cours...
           </>
-        ) : 'Rechercher'}
+        ) : (
+          <>
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Rechercher des offres
+          </>
+        )}
       </button>
     </div>
   );

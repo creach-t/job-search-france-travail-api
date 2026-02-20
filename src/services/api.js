@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API, DEFAULTS, STORAGE_KEYS } from '../utils/constants';
+import { API, DEFAULTS, STORAGE_KEYS, PAGE_SIZE_OPTIONS } from '../utils/constants';
 
 /**
  * Client API configuré pour communiquer avec le serveur intermédiaire
@@ -53,20 +53,33 @@ export const authenticate = async () => {
  * @param {Object} params - Paramètres de recherche
  * @returns {Object} - Paramètres formatés pour l'API
  */
-const buildSearchParams = (params) => {
-  const { keywords, location, distance, experience, contractType, qualification, workingHours, codeROME } = params;
+const buildSearchParams = (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE) => {
+  const { keywords, location, distance, experience, contractType, qualification, workingHours, codeROME, salaryMin } = params;
+
+  // Conversion de workingHours en tempsPlein (booléen attendu par l'API)
+  let tempsPlein;
+  if (workingHours === 'true') tempsPlein = true;
+  else if (workingHours === 'false') tempsPlein = false;
+
+  // Valider pageSize contre les valeurs autorisées
+  const validPageSize = PAGE_SIZE_OPTIONS.includes(pageSize) ? pageSize : DEFAULTS.PAGE_SIZE;
+
+  // Calcul du range selon la page (ex: page=1, size=25 → "25-49")
+  const start = page * validPageSize;
+  const end = start + validPageSize - 1;
+  const range = `${start}-${Math.min(end, DEFAULTS.MAX_TOTAL - 1)}`;
 
   return {
-    // Si un code ROME est fourni, les mots-clés deviennent optionnels
     keywords: keywords || (codeROME ? undefined : DEFAULTS.DEFAULT_KEYWORDS),
     location: location || undefined,
-    distance: distance || DEFAULTS.DEFAULT_DISTANCE,
+    distance: distance !== undefined && distance !== '' ? distance : DEFAULTS.DEFAULT_DISTANCE,
     experience: experience || undefined,
     contractType: contractType || undefined,
     qualification: qualification || undefined,
-    workingHours: workingHours || undefined,
+    tempsPlein,
     codeROME: codeROME || undefined,
-    limit: DEFAULTS.SEARCH_LIMIT
+    salaryMin: salaryMin || undefined,
+    range,
   };
 };
 
@@ -75,39 +88,28 @@ const buildSearchParams = (params) => {
  * @param {Object} params - Paramètres de recherche
  * @returns {Promise<Object>} - Résultats de la recherche
  */
-export const searchJobs = async (params) => {
-  if (!params) {
-    throw new Error('Paramètres de recherche requis');
-  }
-  
-  try {
-    // Vérifier si un token existe, sinon s'authentifier
-    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) {
-      await authenticate();
-    }
-    
-    const searchParams = buildSearchParams(params);
+export const searchJobs = async (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE) => {
+  if (!params) throw new Error('Paramètres de recherche requis');
+
+  const doSearch = async () => {
+    const searchParams = buildSearchParams(params, page, pageSize);
     const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
     return response.data;
+  };
+
+  try {
+    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) await authenticate();
+    return await doSearch();
   } catch (error) {
-    // Si erreur 401 (Unauthorized), tenter de ré-authentifier et réessayer
-    if (error.response && error.response.status === 401) {
+    if (error.response?.status === 401) {
       try {
         await authenticate();
-        const searchParams = buildSearchParams(params);
-        const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
-        return response.data;
-      } catch (retryError) {
-        console.error('Erreur lors de la tentative de ré-authentification:', retryError);
+        return await doSearch();
+      } catch {
         throw new Error('Session expirée. Veuillez rafraîchir la page et réessayer.');
       }
     }
-    
-    console.error('Erreur lors de la recherche d\'emplois:', error.response || error);
-    throw new Error(
-      error.response?.data?.message || 
-      'Impossible de rechercher les offres d\'emploi. Veuillez réessayer.'
-    );
+    throw new Error(error.response?.data?.message || 'Impossible de rechercher les offres d\'emploi.');
   }
 };
 

@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useGetJobById } from '../hooks/useJobs';
 import ApplyButton from '../components/JobCard/ApplyButton';
+import { formatSalaryToMonthly } from '../utils/salaryUtils';
 
 const JobDetailsPage = () => {
   const { id } = useParams();
@@ -206,14 +207,19 @@ const JobDetailsPage = () => {
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">Salaire</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {job.salaire?.libelle || 'Non spécifié'}
-                {job.salaire?.commentaire && (
-                  <div className="mt-1 text-gray-600">{job.salaire.commentaire}</div>
+                {/* Salaire converti en mensuel brut */}
+                <span className="font-medium text-gray-900">
+                  💰 {formatSalaryToMonthly(job.salaire)}
+                </span>
+                {/* Salaire original pour référence */}
+                {job.salaire?.libelle && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    Indication originale : {job.salaire.libelle}
+                  </div>
                 )}
                 {(job.salaire?.complement1 || job.salaire?.complement2) && (
-                  <div className="mt-1">
-                    <strong>Compléments : </strong>
-                    <ul className="list-disc list-inside">
+                  <div className="mt-2">
+                    <ul className="list-disc list-inside text-gray-600 text-sm">
                       {job.salaire.complement1 && <li>{job.salaire.complement1}</li>}
                       {job.salaire.complement2 && <li>{job.salaire.complement2}</li>}
                     </ul>
@@ -274,7 +280,24 @@ const JobDetailsPage = () => {
                   {job.contact.commentaire && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-md text-sm">
                       <p className="font-medium mb-1">Informations supplémentaires :</p>
-                      <p>{job.contact.commentaire}</p>
+                      <p className="whitespace-pre-wrap">
+                        {job.contact.commentaire.split(/(https?:\/\/[^\s]+)/g).map((part, index) => {
+                          if (part.match(/^https?:\/\//)) {
+                            return (
+                              <a
+                                key={index}
+                                href={part}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-ft-blue hover:underline break-all"
+                              >
+                                {part}
+                              </a>
+                            );
+                          }
+                          return part;
+                        })}
+                      </p>
                     </div>
                   )}
                 </div>

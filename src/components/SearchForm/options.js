@@ -22,8 +22,8 @@ export const qualificationOptions = [
 
 export const workingHoursOptions = [
   { value: '', label: 'Tous' },
-  { value: 'E1', label: 'Temps plein' },
-  { value: 'E2', label: 'Temps partiel' }
+  { value: 'true', label: 'Temps plein' },
+  { value: 'false', label: 'Temps partiel' }
 ];
 
 // Réduire le nombre de compétences pour éviter les erreurs
