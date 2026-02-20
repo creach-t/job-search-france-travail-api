@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Fragment } from 'react';
+import { Link } from 'react-router-dom';
 import { Disclosure } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAppContext } from '../../context/AppContext';
