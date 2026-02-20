@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import SearchForm from '../components/SearchForm';
 import JobList from '../components/JobList';
 import Spinner from '../components/ui/Spinner';
 import Error from '../components/ui/Error';
 import { useSearchJobs } from '../hooks/useJobs';
 import { useAllJobs } from '../hooks/useAllJobs';
+import { useMultiStackJobs } from '../hooks/useMultiStackJobs';
 import { convertToAnnualSalary } from '../utils/salaryUtils';
 import { DEFAULTS, PAGE_SIZE_OPTIONS } from '../utils/constants';
+import { useAppContext } from '../context/AppContext';
 
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
@@ -28,21 +30,24 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
-      {/* Sélecteur de taille de page */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <span className="hidden sm:inline">Offres par page :</span>
-        <div className="flex gap-1">
-          {PAGE_SIZE_OPTIONS.map(size => (
-            <button
-              key={size}
-              onClick={() => onPageSizeChange(size)}
-              className={`h-8 px-2.5 rounded-md text-sm font-medium transition-colors ${
-                size === pageSize ? 'bg-ft-blue text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {size}
-            </button>
-          ))}
+      {/* Sélecteur de taille de page — compact */}
+      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+        <span className="hidden sm:inline text-xs text-gray-400">Par page</span>
+        <div className="relative">
+          <select
+            value={pageSize}
+            onChange={e => onPageSizeChange(Number(e.target.value))}
+            className="h-8 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:border-ft-blue focus:ring-1 focus:ring-ft-blue/30 appearance-none cursor-pointer transition-colors hover:bg-white"
+          >
+            {PAGE_SIZE_OPTIONS.map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+            <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -96,10 +101,8 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
 
 // ─── Page principale ────────────────────────────────────────────────────────
 const HomePage = () => {
-  const [searchParams, setSearchParams] = useState(() => {
-    try { const s = sessionStorage.getItem('lastSearchParams'); return s ? JSON.parse(s) : null; }
-    catch { return null; }
-  });
+  const { isDevMode } = useAppContext();
+  const [searchParams, setSearchParams] = useState(null); // pas d'auto-search au chargement
   const [currentPage, setCurrentPage] = useState(() => {
     try { return parseInt(sessionStorage.getItem('lastSearchPage') || '0', 10); }
     catch { return 0; }
@@ -109,11 +112,32 @@ const HomePage = () => {
     catch { return DEFAULTS.PAGE_SIZE; }
   });
 
-  const hasSalaryFilter = !!searchParams?.salaryMin;
+  // Quand le mode change → reset des résultats (l'utilisateur relancera sa recherche)
+  useEffect(() => {
+    setSearchParams(null);
+    setCurrentPage(0);
+  }, [isDevMode]);
 
-  // Mode normal : pagination API directe (pas de filtre salaire)
+  // ── Détection des modes ──────────────────────────────────────────────────
+  const stacks          = searchParams?.stacks ?? [];
+  const hasMultiStack   = stacks.length > 0;
+  const hasSalaryFilter = !!searchParams?.salaryMin && !hasMultiStack; // salary filtre sur résultats normaux
+
+  // Extraire les params de base sans stacks/keywords pour les requêtes multi-stack
+  const baseParamsForStack = useMemo(() => {
+    if (!searchParams || !hasMultiStack) return null;
+    const { keywords: _kw, stacks: _st, ...rest } = searchParams;
+    return rest;
+  }, [searchParams, hasMultiStack]);
+
+  // ── Hooks de recherche ───────────────────────────────────────────────────
+
+  // Mode multi-stack : une requête par stack, combinées
+  const multiStackQuery = useMultiStackJobs(baseParamsForStack, stacks, hasMultiStack);
+
+  // Mode normal : pagination API directe (pas de filtre salaire, pas de multi-stack)
   const normalQuery = useSearchJobs(
-    hasSalaryFilter ? null : searchParams,
+    !hasMultiStack && !hasSalaryFilter ? searchParams : null,
     currentPage,
     pageSize
   );
@@ -125,7 +149,6 @@ const HomePage = () => {
   );
 
   const handleSearch = (params) => {
-    sessionStorage.setItem('lastSearchParams', JSON.stringify(params));
     sessionStorage.setItem('lastSearchPage', '0');
     setCurrentPage(0);
     setSearchParams(params);
@@ -144,8 +167,55 @@ const HomePage = () => {
     setCurrentPage(0);
   };
 
-  // ── Calcul des données selon le mode actif ──
+  // ── Calcul des données selon le mode actif ──────────────────────────────
   const display = useMemo(() => {
+    // ── Mode multi-stack ──
+    if (hasMultiStack) {
+      const { allJobs, isLoading, isFetching, isError, loadedCount, queryCount, totalsPerStack } = multiStackQuery;
+
+      // Filtre salaire optionnel en plus
+      const salaryMinAnnual = searchParams?.salaryMin ? parseInt(searchParams.salaryMin, 10) : null;
+      const filtered = salaryMinAnnual
+        ? allJobs.filter(job => {
+            if (!job.salaire) return false;
+            const annual = convertToAnnualSalary(job.salaire);
+            return annual !== null && annual >= salaryMinAnnual;
+          })
+        : allJobs;
+
+      const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      const safePage = Math.min(currentPage, pages - 1);
+      const start = safePage * pageSize;
+      const pageJobs = filtered.slice(start, start + pageSize);
+
+      const loadingLabel = isFetching && !isLoading && queryCount > 1
+        ? `Chargement… (${loadedCount}/${queryCount} stacks)`
+        : null;
+
+      // Résumé par stack
+      const stackSummary = totalsPerStack
+        .filter(t => t.apiTotal !== null)
+        .map(t => `${t.stack} (${t.fetched})`)
+        .join(' · ');
+
+      return {
+        jobs: pageJobs,
+        totalCount: filtered.length,
+        totalPages: pages,
+        showingFrom: filtered.length > 0 ? start + 1 : 0,
+        showingTo: start + pageJobs.length,
+        isLoading,
+        isFetching,
+        isError,
+        isApiCapped: false,
+        rawApiTotal: null,
+        loadingLabel,
+        stackSummary,
+        mode: 'multi-stack',
+      };
+    }
+
+    // ── Mode filtre salaire ──
     if (hasSalaryFilter) {
       const { allJobs, total, isLoading, isFetching, isError, loadedPages, totalApiPages } = allJobsQuery;
       const salaryMinAnnual = parseInt(searchParams.salaryMin, 10);
@@ -172,14 +242,14 @@ const HomePage = () => {
         isError,
         isApiCapped: total !== null && total > DEFAULTS.MAX_TOTAL,
         rawApiTotal: total,
-        // Indicateur de progression pendant le chargement des pages suivantes
         loadingLabel: isFetching && !isLoading && totalApiPages > 1
           ? `Chargement… (${loadedPages}/${totalApiPages} pages)`
           : null,
+        mode: 'salary',
       };
     }
 
-    // Mode normal
+    // ── Mode normal ──
     const { data, isLoading, isFetching, isError, error } = normalQuery;
     const jobs = data?.resultats ?? [];
     const total = data?.total ?? null;
@@ -200,8 +270,9 @@ const HomePage = () => {
       rawApiTotal: total,
       loadingLabel: null,
       errorMsg: error?.message,
+      mode: 'normal',
     };
-  }, [hasSalaryFilter, normalQuery, allJobsQuery, searchParams, currentPage, pageSize]);
+  }, [hasMultiStack, hasSalaryFilter, multiStackQuery, normalQuery, allJobsQuery, searchParams, currentPage, pageSize]);
 
   const barProps = {
     currentPage,
@@ -218,27 +289,51 @@ const HomePage = () => {
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-          Trouvez votre prochain emploi
-        </h1>
-        <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-          Recherchez parmi les offres d'emploi disponibles en France
-        </p>
+        {isDevMode ? (
+          <>
+            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+              Offres pour développeurs
+            </h1>
+            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+              Recherche filtrée sur les postes tech &amp; développement en France
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+              Trouvez votre prochain emploi
+            </h1>
+            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+              Recherchez parmi les offres d'emploi disponibles en France
+            </p>
+          </>
+        )}
       </div>
 
       <div className="mb-8">
-        <SearchForm onSearch={handleSearch} />
+        <SearchForm
+          key={isDevMode ? 'dev' : 'normal'}
+          onSearch={handleSearch}
+          initialKeywords={isDevMode ? 'développeur' : ''}
+          initialContractType={isDevMode ? 'CDI' : ''}
+        />
       </div>
 
       {searchParams && (
         <div>
           {display.isLoading ? (
-            <Spinner text={hasSalaryFilter ? "Chargement des offres…" : "Recherche en cours..."} />
+            <Spinner text={
+              hasMultiStack
+                ? `Recherche sur ${stacks.length} stack${stacks.length > 1 ? 's' : ''}…`
+                : hasSalaryFilter
+                  ? "Chargement des offres…"
+                  : "Recherche en cours..."
+            } />
           ) : display.isError ? (
             <Error message={display.errorMsg || "Une erreur s'est produite. Veuillez réessayer."} />
           ) : (
             <>
-              {/* Bannière trop de résultats */}
+              {/* Bannière trop de résultats (mode normal uniquement) */}
               {display.isApiCapped && (
                 <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
                   <svg className="h-5 w-5 shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -249,6 +344,16 @@ const HomePage = () => {
                     {' '}Seules les <strong>1 150 premières</strong> sont accessibles — affinez vos critères
                     {' '}(localisation, type de contrat, expérience…) pour voir les résultats les plus pertinents.
                   </span>
+                </div>
+              )}
+
+              {/* Bandeau info multi-stack */}
+              {display.mode === 'multi-stack' && display.stackSummary && (
+                <div className="mb-4 flex items-center gap-2 bg-ft-blue/5 border border-ft-blue/20 rounded-xl px-4 py-2.5 text-xs text-ft-blue">
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Résultats combinés — {display.stackSummary}</span>
                 </div>
               )}
 
@@ -263,7 +368,7 @@ const HomePage = () => {
                   {' '}offre{display.totalCount !== 1 ? 's' : ''} trouvée{display.totalCount !== 1 ? 's' : ''}
                 </h2>
 
-                {/* Progression du chargement multi-pages (filtre salaire) */}
+                {/* Progression chargement */}
                 {display.loadingLabel && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
                     <svg className="animate-spin h-3.5 w-3.5 text-ft-blue" fill="none" viewBox="0 0 24 24">

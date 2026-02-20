@@ -28,15 +28,15 @@
 │   │   ├── SearchForm/      # Formulaire de recherche
 │   │   │   ├── index.js     # Conteneur principal du formulaire
 │   │   │   ├── MainSearchFields.js    # Champs principaux (métier, lieu)
-│   │   │   ├── AdvancedSearchFields.js # Filtres avancés (5 selects)
+│   │   │   ├── AdvancedSearchFields.js # Filtres avancés (5 selects + stack DevJobs)
 │   │   │   ├── MetierAutocomplete.js  # Autocomplete ROME
 │   │   │   ├── SearchButton.js
-│   │   │   └── options.js   # Options des selects
-│   │   ├── Navbar/          # Navigation
+│   │   │   └── options.js   # Options des selects + stackGroups DevJobs
+│   │   ├── Navbar/          # Navigation (avec toggle DevJobs/Classique)
 │   │   ├── Footer/          # Pied de page
 │   │   └── ui/              # Composants UI génériques
 │   ├── pages/               # Pages principales
-│   │   ├── HomePage.js      # Page d'accueil — recherche + pagination + filtre salaire
+│   │   ├── HomePage.js      # Page d'accueil — recherche + pagination + filtre salaire + multi-stack
 │   │   ├── JobDetailsPage.js # Détails d'une offre
 │   │   ├── SavedJobsPage.js # Offres sauvegardées
 │   │   └── NotFoundPage.js  # Page 404
@@ -47,9 +47,10 @@
 │   ├── hooks/               # Custom React hooks
 │   │   ├── useJobs.js      # Hook useSearchJobs (mode normal)
 │   │   ├── useAllJobs.js   # Hook useAllJobs (mode filtre salaire global)
+│   │   ├── useMultiStackJobs.js # Hook multi-stack (DevJobs — requêtes parallèles par techno)
 │   │   └── useGeolocation.js # Hook de géolocalisation
 │   ├── context/             # Context API React
-│   │   └── AppContext.js   # Contexte global de l'application
+│   │   └── AppContext.js   # Contexte global (favoris + isDevMode/toggleDevMode)
 │   └── utils/               # Utilitaires et constantes
 │       ├── constants.js    # Constantes + PAGE_SIZE_OPTIONS + DEFAULTS
 │       └── salaryUtils.js  # Conversion et formatage des salaires
@@ -71,15 +72,21 @@
 
 ### Modes de chargement des données (HomePage)
 
-L'application bascule entre deux modes selon la présence d'un filtre salaire (`hasSalaryFilter`) :
+L'application bascule entre **trois modes** selon les paramètres de recherche actifs :
 
-- **Mode normal** (`useSearchJobs`) : pagination API directe, une page à la fois
-- **Mode filtre salaire** (`useAllJobs`) : charge toutes les pages en parallèle via `useQueries`, filtre côté client, pagine localement
+| Condition | Hook utilisé | Comportement |
+|-----------|-------------|--------------|
+| `hasMultiStack = true` (≥1 stack DevJobs) | `useMultiStackJobs` | 1 requête API par stack (150 résultats max), combinaison + déduplication côté client, pagination locale |
+| `hasSalaryFilter = true` (filtre salaire, sans multi-stack) | `useAllJobs` | 8 requêtes parallèles → filtre côté client → pagination locale |
+| Sinon (mode normal) | `useSearchJobs` | Pagination API directe, une page à la fois |
 
 ```
-hasSalaryFilter = false  →  useSearchJobs  →  pagination API (range 0-49, 50-99, ...)
-hasSalaryFilter = true   →  useAllJobs     →  8 requêtes parallèles → filtre → pagination locale
+hasMultiStack = true   →  useMultiStackJobs  →  N requêtes /stack → combine → pagination locale
+hasSalaryFilter = true →  useAllJobs         →  8 requêtes parallèles → filtre → pagination locale
+sinon                  →  useSearchJobs      →  pagination API (range 0-49, 50-99, ...)
 ```
+
+> **Priorité :** multi-stack > filtre salaire > mode normal. Les deux premiers modes ne sont pas cumulables.
 
 ## APIs Externes Utilisées
 
@@ -161,6 +168,72 @@ FT_TOKEN_URL=https://entreprise.francetravail.fr/connexion/oauth2/access_token
 FT_BASE_URL=https://api.francetravail.io/
 ```
 
+## Mode DevJobs
+
+### Présentation
+
+L'application propose deux modes d'utilisation :
+
+- **Mode DevJobs** (par défaut) : interface orientée développeurs, navbar sombre, filtres de stacks technologiques, mot-clé "développeur" garanti si aucun critère saisi
+- **Mode Classique** : recherche généraliste tous secteurs, navbar blanche, sans filtres de stacks
+
+Le mode est persisté en `localStorage` (`devJobsMode`). Premier lancement → DevJobs par défaut.
+
+### Toggle dans la Navbar
+
+Le composant `ModeToggle` affiche **le mode de destination** (pas le mode courant) :
+
+| Mode actif | Label du bouton | Effet du clic |
+|------------|----------------|---------------|
+| DevJobs (défaut) | "Classique" | Passe en mode Classique |
+| Classique | "DevJobs" | Repasse en DevJobs |
+
+Changer de mode **réinitialise les résultats** (setSearchParams → null) sans lancer de recherche automatique.
+
+### Contexte global (`AppContext.js`)
+
+```javascript
+const [isDevMode, setIsDevMode] = useState(() => {
+  const stored = localStorage.getItem('devJobsMode');
+  return stored === null ? true : stored === 'true'; // DevJobs par défaut
+});
+const toggleDevMode = () => {
+  setIsDevMode(prev => {
+    const next = !prev;
+    localStorage.setItem('devJobsMode', String(next));
+    return next;
+  });
+};
+// Exposé dans le context : { ..., isDevMode, toggleDevMode }
+```
+
+### Multi-stack DevJobs (`useMultiStackJobs.js`)
+
+Sélectionner plusieurs stacks dans les filtres avancés déclenche **une requête API par stack** (max 150 résultats chacune), les résultats sont ensuite **combinés et dédupliqués par `job.id`** :
+
+```javascript
+// baseParams = searchParams sans keywords/stacks
+// stacks = ['React', 'Vue', 'TypeScript']
+// → 3 requêtes parallèles : searchJobs({...baseParams, keywords: 'React'}, 0, 150), etc.
+```
+
+Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, loadedCount, queryCount }`
+
+### Stacks disponibles (`options.js` → `stackGroups`)
+
+| Groupe | Technologies |
+|--------|-------------|
+| Frontend | React, Vue, Angular, Next.js, TypeScript |
+| Backend | Node.js, Python, Java, PHP, C#, Go, Rust |
+| Mobile | Flutter, Swift, Kotlin |
+| DevOps / Cloud | DevOps, Docker, AWS, Azure |
+
+### Comportement du formulaire en DevJobs
+
+- **Sans stack sélectionné :** si le champ mots-clés est vide → "développeur" utilisé comme fallback
+- **Avec stacks :** les stacks fournissent leurs propres mots-clés, le champ texte est ignoré
+- Les filtres de stacks sont **cachés en mode Classique** (`{isDevMode && ...}` dans `AdvancedSearchFields`)
+
 ## Points d'implémentation notables
 
 ### Pagination
@@ -168,8 +241,15 @@ FT_BASE_URL=https://api.francetravail.io/
 - Total réel extrait du header `Content-Range` de la réponse API
 - Page et taille de page persistées via `sessionStorage`
 
+### Recherche multi-stack (DevJobs)
+- Bascule vers `useMultiStackJobs` quand `stacks.length > 0` dans searchParams
+- Une requête par stack (150 résultats max chacune) via `useQueries`
+- Résultats combinés et dédupliqués par `job.id` côté client
+- Pagination locale sur les résultats combinés
+- `baseParamsForStack` = searchParams sans `keywords` ni `stacks` (chaque requête injecte son propre keyword = nom du stack)
+
 ### Filtre salaire global
-- Bascule vers `useAllJobs` quand `hasSalaryFilter = true`
+- Bascule vers `useAllJobs` quand `hasSalaryFilter = true` (et `hasMultiStack = false`)
 - Charge jusqu'à 8 pages en parallèle via `useQueries`, filtre côté client sur `convertToAnnualSalary()`
 
 ### Conversion de salaires (`salaryUtils.js`)
@@ -233,7 +313,8 @@ npm run build        # Build de production
 ## Performance
 
 - React Query : cache des requêtes (`staleTime: 5 min`)
-- `useQueries` : requêtes parallèles en mode filtre salaire
+- `useQueries` : requêtes parallèles en mode filtre salaire et en mode multi-stack DevJobs
+- Multi-stack : jusqu'à N×150 offres récupérées en parallèle, dédupliquées en O(n) via `Set`
 - Nginx sert les fichiers statiques en production
 
 ## Déploiement

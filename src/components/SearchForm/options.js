@@ -36,3 +36,46 @@ export const webDevelopmentSkills = [
   { value: 'php', label: 'PHP' },
   { value: 'python', label: 'Python' }
 ];
+
+// Stacks technologiques par groupe
+export const stackGroups = [
+  {
+    group: 'Frontend',
+    options: [
+      { value: 'React', label: 'React' },
+      { value: 'Vue', label: 'Vue.js' },
+      { value: 'Angular', label: 'Angular' },
+      { value: 'Next.js', label: 'Next.js' },
+      { value: 'TypeScript', label: 'TypeScript' },
+    ],
+  },
+  {
+    group: 'Backend',
+    options: [
+      { value: 'Node.js', label: 'Node.js' },
+      { value: 'Python', label: 'Python' },
+      { value: 'Java', label: 'Java' },
+      { value: 'PHP', label: 'PHP' },
+      { value: 'C#', label: 'C# / .NET' },
+      { value: 'Go', label: 'Go / Golang' },
+      { value: 'Rust', label: 'Rust' },
+    ],
+  },
+  {
+    group: 'Mobile',
+    options: [
+      { value: 'Flutter', label: 'Flutter' },
+      { value: 'Swift', label: 'Swift / iOS' },
+      { value: 'Kotlin', label: 'Kotlin / Android' },
+    ],
+  },
+  {
+    group: 'DevOps / Cloud',
+    options: [
+      { value: 'DevOps', label: 'DevOps' },
+      { value: 'Docker', label: 'Docker / K8s' },
+      { value: 'AWS', label: 'AWS' },
+      { value: 'Azure', label: 'Azure' },
+    ],
+  },
+];
