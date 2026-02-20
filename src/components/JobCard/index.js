@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import JobTags from './JobTags';
 import SaveButton from './SaveButton';
+import ApplyButton from './ApplyButton';
+import { formatSalaryToMonthly } from '../../utils/salaryUtils';
 
 const JobCard = ({ job }) => {
   const [isSaved, setIsSaved] = useState(false);
@@ -42,10 +44,11 @@ const JobCard = ({ job }) => {
           <SaveButton isSaved={isSaved} onSave={handleSaveJob} />
         </div>
 
-        <JobTags 
+        <JobTags
           typeContrat={job.typeContratLibelle}
           dureeTravail={job.dureeTravailLibelleConverti}
           experience={job.experienceLibelle}
+          qualification={job.qualificationLibelle}
         />
 
         <p className="mt-4 text-sm text-gray-600 line-clamp-3">
@@ -53,23 +56,22 @@ const JobCard = ({ job }) => {
         </p>
 
         <div className="mt-4 flex justify-between items-center">
-          {job.salaire?.libelle ? (
-            <span className="text-sm font-medium text-gray-900">{job.salaire.libelle}</span>
-          ) : (
-            <span className="text-sm font-medium text-gray-500">Salaire non précisé</span>
-          )}
+          <span className="text-sm font-medium text-gray-900">
+            💰 {formatSalaryToMonthly(job.salaire)}
+          </span>
           <span className="text-xs text-gray-500">
             Publiée le {new Date(job.dateCreation).toLocaleDateString('fr-FR')}
           </span>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 flex space-x-4">
           <Link
             to={`/job/${job.id}`}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-ft-blue hover:bg-ft-darkblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ft-blue"
           >
             Voir le détail
           </Link>
+          <ApplyButton job={job} />
         </div>
       </div>
     </div>

@@ -13,26 +13,21 @@ const Tag = ({ color, text }) => {
   );
 };
 
-const JobTags = ({ typeContrat, dureeTravail, experience }) => {
+const JobTags = ({ typeContrat, dureeTravail, experience, qualification }) => {
   return (
     <div className="mt-4 flex flex-wrap gap-2">
-      <Tag 
-        color="blue" 
-        text={typeContrat || 'Type de contrat non spécifié'} 
+      <Tag
+        color="blue"
+        text={typeContrat || 'Type de contrat non spécifié'}
       />
-      
       {dureeTravail && (
-        <Tag 
-          color="green" 
-          text={dureeTravail} 
-        />
+        <Tag color="green" text={dureeTravail} />
       )}
-      
       {experience && (
-        <Tag 
-          color="purple" 
-          text={experience} 
-        />
+        <Tag color="purple" text={experience} />
+      )}
+      {qualification && (
+        <Tag color="yellow" text={qualification} />
       )}
     </div>
   );
