@@ -154,18 +154,6 @@ npm run build    # Génère build/ (servi par le backend Express en production)
 
 ---
 
-## Roadmap
-
-- [ ] Tests unitaires (`salaryUtils.js` en priorité)
-- [ ] Rate limiting côté serveur
-- [ ] Headers de sécurité (helmet.js)
-- [ ] Sanitization HTML des descriptions d'offres
-- [ ] Code splitting avec React.lazy()
-- [ ] Service worker (mode offline)
-- [ ] Déduplication des offres identiques en mode multi-pages
-
----
-
 ## Licence
 
 Usage privé — projet personnel.

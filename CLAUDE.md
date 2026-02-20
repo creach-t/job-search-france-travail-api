@@ -6,25 +6,11 @@
 
 ### Stack Technique
 
-**Frontend:**
-- React 18.2.0
-- React Router DOM 6.21.0
-- TailwindCSS 3.3.5
-- @tanstack/react-query 4.35.3
-- @headlessui/react 1.7.18
-- @heroicons/react 2.1.1
-- Axios 1.7.9
-
-**Backend:**
-- Node.js avec Express 4.21.2
-- CORS pour la gestion des requêtes cross-origin
-- Axios pour les appels API externes
-- dotenv pour la gestion des variables d'environnement
-
-**Infrastructure:**
-- Docker & Docker Compose
-- Nginx (serveur de fichiers statiques en production)
-- Traefik (reverse proxy avec SSL automatique)
+| Couche | Technologies |
+|--------|-------------|
+| Frontend | React 18, React Router 6, TailwindCSS 3, React Query v4, Headless UI, Heroicons, Axios |
+| Backend | Node.js, Express 4, Axios, dotenv |
+| Infrastructure | Docker, Nginx, Traefik (SSL auto) |
 
 ## Architecture
 
@@ -175,70 +161,35 @@ FT_TOKEN_URL=https://entreprise.francetravail.fr/connexion/oauth2/access_token
 FT_BASE_URL=https://api.francetravail.io/
 ```
 
-## Fonctionnalités Implémentées
+## Points d'implémentation notables
 
-### ✅ Recherche d'offres
-- Recherche par mots-clés (max 20 caractères, validé côté client)
-- Autocomplétion des métiers via codes ROME (`MetierAutocomplete`)
-- Filtrage par localisation avec autocomplétion (API Geo)
-- Distance de recherche paramétrable (`'0'` = commune exacte, géré correctement)
-- Filtres avancés via 5 selects : Expérience, Contrat, Qualification, Temps de travail, Salaire min
+### Pagination
+- `range` calculé dynamiquement : `"${page * pageSize}-${page * pageSize + pageSize - 1}"`
+- Total réel extrait du header `Content-Range` de la réponse API
+- Page et taille de page persistées via `sessionStorage`
 
-### ✅ Pagination avancée
-- Affichage du total réel d'offres (extrait du `Content-Range` de l'API)
-- Pagination navigable (boutons page précédente/suivante + indicateur "X–Y sur Z")
-- Sélecteur du nombre d'offres par page : **10 / 25 / 50 / 100 / 150**
-- Persistance de la page et du nombre par page via `sessionStorage`
-- Limite de 1 150 offres accessibles avec message user-friendly (sans mention de l'API)
-- Calcul dynamique du paramètre `range` : `"${page * pageSize}-${page * pageSize + pageSize - 1}"`
+### Filtre salaire global
+- Bascule vers `useAllJobs` quand `hasSalaryFilter = true`
+- Charge jusqu'à 8 pages en parallèle via `useQueries`, filtre côté client sur `convertToAnnualSalary()`
 
-### ✅ Filtre salaire global
-- Le filtre salaire agit sur **toutes les offres** (pas seulement la page courante)
-- En mode filtre salaire : chargement de toutes les pages en parallèle (`useAllJobs`)
-- Indicateur de progression : "Chargement… (3/8 pages)"
-- Filtrage côté client sur salaire annualisé (`convertToAnnualSalary`)
-- Le total affiché = nombre d'offres filtrées (ex: "22 offres correspondent à votre salaire minimum")
+### Conversion de salaires (`salaryUtils.js`)
+- Normalise tout en €/mois brut
+- Format API : `"Mensuel/Horaire/Annuel de X Euros [à Y Euros] sur N mois"`
+- Détection de période avec word boundaries (`/\ban\b/`) pour éviter les faux positifs ("dans", "plan")
+- Heuristique : `montant >= 5000` en contexte mensuel → diviser par `nbMois` (FT encode le total annuel)
+- Conversion horaire → mensuel : `montant × 151.67`
 
-### ✅ Conversion de salaires
-- Normalisation en €/mois brut pour affichage uniforme
-- Détection de période avec word boundaries regex (évite les faux positifs comme "dans", "plan")
-- Support du format `"Mensuel/Horaire/Annuel de X Euros [à Y Euros] sur N mois"`
-- Heuristique : `montant >= 5000` dans un contexte mensuel → total à diviser par `nbMois`
-- Support des montants décimaux (`14.55 Euros`)
-- Conversion horaire → mensuel : `montant × 151.67` (35h × 52/12 semaines)
+### Bouton Postuler (`ApplyButton`) — ordre de priorité
+1. `urlPostulation` → lien direct
+2. URL dans `courriel` → lien site recruteur
+3. Email dans `courriel` → mailto
+4. URL dans `commentaire` → lien offre
+5. Téléphone → lien tel
+6. Sinon → modal infos de contact
 
-### ✅ Bouton Postuler multi-mode (`ApplyButton`)
-Détection automatique du mode de postulation par ordre de priorité :
-1. `urlPostulation` → bouton "Postuler en ligne" (lien externe)
-2. URL dans `courriel` → bouton "Postuler via le site" (certains recruteurs mettent un lien dans ce champ)
-3. Email réel dans `courriel` → bouton "Postuler par email"
-4. URL dans `commentaire` → bouton "Voir l'offre"
-5. Téléphone → bouton "Postuler par téléphone"
-6. Informations texte → modal "Infos de contact"
-
-### ✅ Affichage des résultats
-- Liste paginée des offres
-- Cartes d'offres avec informations clés + salaire converti
-- Tags visuels pour type de contrat, expérience, etc.
-- Indicateurs spéciaux (offre en tension, accessible TH, alternance)
-
-### ✅ Détails des offres
-- Vue complète d'une offre d'emploi
-- Informations entreprise
-- Localisation avec lien Google Maps
-- Bouton de postulation multi-mode (voir ci-dessus)
-- Sauvegarde d'offres (favoris)
-
-### ✅ Sauvegarde locale
-- Système de favoris avec `localStorage`
-- Page dédiée aux offres sauvegardées
-- Synchronisation automatique entre les pages
-
-### ✅ Gestion des erreurs
-- Gestion gracieuse des erreurs API
-- Messages d'erreur utilisateur-friendly
-- Retry automatique en cas d'expiration de token (401 → regénération + retry)
-- Validation des paramètres de recherche
+### Favoris
+- `localStorage` pour la persistance
+- Synchronisation automatique entre les pages via context
 
 ## Constantes importantes (`src/utils/constants.js`)
 
@@ -254,178 +205,45 @@ export const DEFAULTS = {
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];
 ```
 
-## Problèmes Connus et Solutions
+## Pièges connus
 
-### 1. Erreur 431 (Request Header Fields Too Large)
+| Problème | Cause | Solution |
+|----------|-------|----------|
+| Erreur 431 | Headers trop longs | Mots-clés limités à 20 caractères côté client |
+| Token expiré | OAuth2 valide 30 min | Cache serveur + renouvellement 60s avant expiration + retry sur 401 |
+| Paris renvoie 75056 | Code global vs arrondissements | Transformation auto vers 75101, suggestion d'arrondissements |
+| `distance: '0'` ignoré | `'0'` est falsy | Comparaison explicite `!== undefined && !== ''` dans `SearchForm/index.js`, `api.js`, `server.js` |
 
-**Cause:** Paramètres de recherche trop longs
-
-**Solution actuelle:**
-- Limitation à 20 caractères pour les mots-clés
-- Validation côté client avant envoi
-
-### 2. Gestion du token OAuth2
-
-**Cause:** Token France Travail expire après 30 minutes
-
-**Solution actuelle:**
-- Cache du token côté serveur avec timestamp d'expiration
-- Renouvellement automatique 60 secondes avant expiration
-- Retry avec nouveau token en cas d'erreur 401
-
-### 3. Cas spécial Paris
-
-**Problème:** L'API Geo retourne Paris avec un code global (75056), mais France Travail nécessite des codes d'arrondissement
-
-**Solution actuelle:**
-- Transformation automatique vers "Paris 1er arrondissement" (code 75101)
-- Suggestion d'arrondissements dans l'autocomplétion
-- Mapping personnalisé des codes INSEE
-
-### 4. `distance: '0'` traité comme falsy
-
-**Problème:** `distance || '10'` remplace `'0'` (commune exacte) par `'10'`
-
-**Solution actuelle:**
-- Comparaison explicite : `distance !== undefined && distance !== ''`
-- Appliqué côté frontend (`SearchForm/index.js`, `api.js`) et backend (`server.js`)
-
-### 5. Filtre salaire multi-pages
-
-**Problème:** L'API FT ne supporte pas de filtre salaire natif → le filtrage par page n'affichait que les résultats filtrés sur une seule page
-
-**Solution actuelle:**
-- `useAllJobs` charge toutes les pages en parallèle avant filtrage
-- Filtrage global sur `allJobs`, puis pagination locale
-
-### 6. Format ambigu des salaires FT
-
-**Problème:** `"Mensuel de 24000 Euros sur 12 mois"` — 24 000 peut être mensuel ou annuel
-
-**Solution actuelle:**
-- Heuristique : si `montant >= 5000` → diviser par `nbMois`
-- Le format FT encode généralement le total annuel même dans "Mensuel"
-
-## Bonnes Pratiques de Développement
-
-### Code Style
-
-1. **Composants React:**
-   - Utiliser des composants fonctionnels avec hooks
-   - Extraire les composants complexes en sous-composants
-   - Props destructuring pour la lisibilité
-
-2. **État et données:**
-   - React Query pour la gestion du cache et des requêtes
-   - `useQueries` pour les requêtes parallèles (chargement multi-pages)
-   - `localStorage` pour la persistance des favoris
-   - `sessionStorage` pour la persistance de navigation (page courante, taille de page, dernière recherche)
-
-3. **Styling:**
-   - TailwindCSS avec classes utilitaires
-   - Responsive design (mobile-first)
-   - Couleurs personnalisées dans `tailwind.config.js`
-
-4. **Gestion d'erreurs:**
-   - Try-catch dans toutes les fonctions async
-   - Messages d'erreur clairs pour l'utilisateur
-   - Logging console pour le debug
-
-### Commandes Utiles
+## Commandes
 
 ```bash
-# Développement
-npm run dev          # Lance frontend + backend en parallèle
+npm run dev          # Frontend (3000) + Backend (4059) en parallèle
 npm start            # Frontend uniquement
-npm run server       # Backend uniquement avec hot reload
-
-# Build
+npm run server       # Backend uniquement (hot reload)
 npm run build        # Build de production
-
-# Docker
-docker-compose up -d              # Lancer en production
-docker-compose logs -f backend    # Voir les logs backend
-docker-compose down               # Arrêter les services
 ```
 
 ## Sécurité
 
-### ✅ Implémenté
 - CORS configuré avec whitelist d'origines
-- Credentials API stockés uniquement côté serveur
-- Aucune exposition des secrets au frontend
-- Validation des entrées utilisateur
-
-### ⚠️ À améliorer
-- Ajouter un rate limiting côté serveur
-- Implémenter une vraie gestion de sessions
-- Ajouter des headers de sécurité (helmet.js)
-- Sanitization des données HTML (description des offres)
-
-## Tests
-
-### À développer
-Actuellement, aucun test n'est implémenté. Recommandations:
-- Tests unitaires avec Jest + React Testing Library (priorité : `salaryUtils.js`)
-- Tests d'intégration pour les appels API
-- Tests E2E avec Cypress ou Playwright
-- Coverage minimum à viser: 70%
+- Credentials API stockés uniquement côté serveur (jamais exposés au frontend)
+- Token OAuth2 mis en cache côté serveur, renouvelé automatiquement
+- Validation des entrées utilisateur côté client (longueur mots-clés, etc.)
 
 ## Performance
 
-### Optimisations actuelles
-- React Query pour le cache des requêtes (staleTime: 5 min)
-- `useQueries` pour les requêtes parallèles en mode filtre salaire
-- Build optimisé avec Webpack (via create-react-app)
-- Nginx pour servir les fichiers statiques en production
-
-### Améliorations possibles
-- Implémenter React.lazy() pour le code splitting
-- Ajouter un service worker pour le mode offline
-- Optimiser les images (WebP, lazy loading)
-- Dédupliquer les offres identiques lors du chargement multi-pages
+- React Query : cache des requêtes (`staleTime: 5 min`)
+- `useQueries` : requêtes parallèles en mode filtre salaire
+- Nginx sert les fichiers statiques en production
 
 ## Déploiement
 
-### Production
-L'application est conçue pour être déployée avec Docker:
-1. Build du frontend: `npm run build`
-2. Copie du build dans le container backend
-3. Backend sert l'API + fichiers statiques
-4. Nginx sert le frontend avec routing
-5. Traefik gère le SSL et le reverse proxy
+```bash
+npm run build                     # Build de production
+docker-compose up -d              # Démarrer
+docker-compose logs -f backend    # Voir les logs
+docker-compose down               # Arrêter
+```
 
-### Domaines
-- Frontend: `devjobs.creachtheo.fr`
-- Backend API: `api.devjobs.creachtheo.fr`
-
-## Contribution
-
-### Workflow Git
-1. Créer une branche depuis `main`: `git checkout -b feature/nom-feature`
-2. Développer et commiter régulièrement
-3. Pousser et créer une Pull Request
-4. Review et merge dans `main`
-
-### Convention de nommage
-- Branches: `feature/`, `fix/`, `refactor/`, `docs/`
-- Commits: messages clairs en français, impératif présent
-- Co-authored-by pour les contributions assistées
-
-## Ressources
-
-### Documentation officielle
-- [API France Travail](https://francetravail.io/produits-partages/catalogue)
-- [API Geo](https://geo.api.gouv.fr/decoupage-administratif)
-- [React](https://react.dev/)
-- [TailwindCSS](https://tailwindcss.com/)
-- [React Query](https://tanstack.com/query/latest)
-
-### Outils de développement
-- [React DevTools](https://react.dev/learn/react-developer-tools)
-- [Postman](https://www.postman.com/) pour tester les APIs
-- [Docker Desktop](https://www.docker.com/products/docker-desktop)
-
----
-
-**Dernière mise à jour:** Février 2026
+- Frontend : `devjobs.creachtheo.fr`
+- Backend API : `api.devjobs.creachtheo.fr`
