@@ -10,7 +10,7 @@ const CommuneSearch = ({ onSelect }) => {
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedCommune, setSelectedCommune] = useState(null);
+  const [, setSelectedCommune] = useState(null);
   const containerRef = useRef(null);
   
   // Fonction pour rechercher les communes à partir du texte saisi

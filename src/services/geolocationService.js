@@ -33,6 +33,8 @@ export const getCurrentPosition = () => {
           case error.TIMEOUT:
             errorMessage = 'La demande de géolocalisation a expiré';
             break;
+          default:
+            break;
         }
         
         reject(new Error(errorMessage));
@@ -77,7 +79,9 @@ export const findCommuneByCoordinates = async (latitude, longitude) => {
   }
 };
 
-export default {
+const geolocationService = {
   getCurrentPosition,
   findCommuneByCoordinates
 };
+
+export default geolocationService;

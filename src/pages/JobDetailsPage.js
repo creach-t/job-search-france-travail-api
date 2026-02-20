@@ -75,16 +75,6 @@ const JobDetailsPage = () => {
 
   // Organisation du contenu de l'offre
   const hasGeolocation = job.lieuTravail?.latitude && job.lieuTravail?.longitude;
-  const hasQualifications = job.qualitesProfessionnelles && job.qualitesProfessionnelles.length > 0;
-  const hasCompetences = job.competences && job.competences.length > 0;
-  const hasFormations = job.formations && job.formations.length > 0;
-  const hasLangues = job.langues && job.langues.length > 0;
-  const hasPermis = job.permis && job.permis.length > 0;
-  const hasContexteTravail = job.contexteTravail && (
-    (job.contexteTravail.horaires && job.contexteTravail.horaires.length > 0) || 
-    (job.contexteTravail.conditionsExercice && job.contexteTravail.conditionsExercice.length > 0)
-  );
-  const hasEnterpriseInfo = job.entreprise && (job.entreprise.description || job.entreprise.url);
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
