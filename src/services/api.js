@@ -164,10 +164,9 @@ export const searchMetiers = async (query = '') => {
       : `${API.BASE_URL}/rome/metiers`;
 
     const response = await axios.get(url);
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('Erreur lors de la recherche de métiers:', error);
-    // En cas d'erreur, retourner une liste vide plutôt que de lancer une erreur
     return [];
   }
 };

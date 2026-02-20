@@ -456,20 +456,20 @@ app.get('/api/rome/metiers/:code', authMiddleware, async (req, res) => {
   }
 });
 
+// Route pour la vérification de santé (doit être avant le catch-all React)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', version: '1.0.0' });
+});
+
 // Servir les fichiers statiques en production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../build')));
-  
+
   // Toutes les routes non-API renvoient vers l'application React
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../build', 'index.html'));
   });
 }
-
-// Route pour la vérification de santé
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', version: '1.0.0' });
-});
 
 // Démarrage du serveur
 app.listen(PORT, () => {

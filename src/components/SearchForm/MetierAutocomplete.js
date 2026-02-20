@@ -14,7 +14,7 @@ const MetierAutocomplete = ({ selectedMetier, onSelect }) => {
       setLoading(true);
       try {
         const data = await apiSearchMetiers(query);
-        setMetiers(data);
+        setMetiers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Erreur recherche métiers:', error);
         // En cas d'erreur, garder les métiers précédents
