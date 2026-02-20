@@ -4,24 +4,34 @@ import AdvancedSearchFields from './AdvancedSearchFields';
 import SearchButton from './SearchButton';
 import MetierAutocomplete from './MetierAutocomplete';
 import { ChevronDownIcon, ChevronUpIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/20/solid';
+import { useAppContext } from '../../context/AppContext';
 
-const SearchForm = ({ onSearch }) => {
-  const [keywords, setKeywords] = useState('');
+const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }) => {
+  const { isDevMode } = useAppContext();
+  const [keywords, setKeywords] = useState(initialKeywords);
   const [selectedCommune, setSelectedCommune] = useState(null);
   const [distance, setDistance] = useState('10');
   const [experience, setExperience] = useState('');
-  const [contractType, setContractType] = useState('');
+  const [contractType, setContractType] = useState(initialContractType);
   const [qualification, setQualification] = useState('');
   const [workingHours, setWorkingHours] = useState('');
   const [selectedMetier, setSelectedMetier] = useState(null);
   const [salaryMin, setSalaryMin] = useState('');
+  const [stacks, setStacks] = useState([]); // multi-select
   const [advancedSearch, setAdvancedSearch] = useState(false);
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Compter les filtres avancés actifs
+  // Toggle d'un stack dans le tableau multi-select
+  const handleStackToggle = (value) => {
+    setStacks(prev =>
+      prev.includes(value) ? prev.filter(s => s !== value) : [...prev, value]
+    );
+  };
+
+  // Compter les filtres avancés actifs (chaque stack compte pour 1)
   const activeFiltersCount = [experience, contractType, qualification, workingHours, salaryMin]
-    .filter(Boolean).length;
+    .filter(Boolean).length + stacks.length;
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -34,10 +44,15 @@ const SearchForm = ({ onSearch }) => {
       return;
     }
 
-    const finalKeywords = keywords ? keywords.substring(0, 20) : undefined;
+    // En DevMode sans stack : "développeur" garanti comme mot-clé de base
+    const resolvedKeywords = stacks.length > 0
+      ? undefined // les stacks fournissent leurs propres keywords
+      : (keywords.trim()
+          ? keywords.substring(0, 20)
+          : (isDevMode ? 'développeur' : undefined));
 
     const searchParams = {
-      keywords: finalKeywords,
+      keywords: resolvedKeywords,
       distance: distance !== undefined && distance !== '' ? distance : '10',
       experience,
       contractType,
@@ -48,6 +63,7 @@ const SearchForm = ({ onSearch }) => {
     if (qualification) searchParams.qualification = qualification;
     if (workingHours) searchParams.workingHours = workingHours;
     if (salaryMin) searchParams.salaryMin = salaryMin;
+    if (stacks.length > 0) searchParams.stacks = stacks; // multi-stack
 
     onSearch(searchParams);
     setTimeout(() => setIsSearching(false), 500);
@@ -122,6 +138,8 @@ const SearchForm = ({ onSearch }) => {
               setWorkingHours={setWorkingHours}
               salaryMin={salaryMin}
               setSalaryMin={setSalaryMin}
+              stacks={stacks}
+              onStackToggle={handleStackToggle}
             />
           </div>
         )}

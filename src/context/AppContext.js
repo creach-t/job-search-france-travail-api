@@ -9,6 +9,13 @@ export const useAppContext = () => useContext(AppContext);
 // Fournisseur du contexte
 export const AppProvider = ({ children }) => {
   const [savedJobs, setSavedJobs] = useState([]);
+  const [isDevMode, setIsDevMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem('devJobsMode');
+      return stored === null ? true : stored === 'true'; // true par défaut
+    }
+    catch { return true; }
+  });
 
   // Chargement des offres sauvegardées depuis le localStorage au chargement
   useEffect(() => {
@@ -40,12 +47,23 @@ export const AppProvider = ({ children }) => {
     return savedJobs.some(job => job.id === jobId);
   };
 
+  // Toggle mode DevJobs
+  const toggleDevMode = () => {
+    setIsDevMode(prev => {
+      const next = !prev;
+      try { localStorage.setItem('devJobsMode', String(next)); } catch {}
+      return next;
+    });
+  };
+
   // Valeur fournie par le contexte
   const value = {
     savedJobs,
     saveJob,
     removeJob,
-    isJobSaved
+    isJobSaved,
+    isDevMode,
+    toggleDevMode,
   };
 
   return (

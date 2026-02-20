@@ -8,6 +8,19 @@ Application web de recherche d'offres d'emploi utilisant l'API officielle de Fra
 
 ## Fonctionnalités
 
+### 🛠️ Mode DevJobs (par défaut)
+Interface spécialisée pour les développeurs :
+- **Filtres de stacks technologiques** — React, Vue, Angular, Next.js, TypeScript, Node.js, Python, Java, PHP, C#, Go, Rust, Flutter, Swift, Kotlin, Docker, AWS, Azure…
+- **Recherche multi-stack** — sélectionner plusieurs stacks lance des recherches en parallèle et combine les résultats dédupliqués automatiquement
+- Mot-clé "développeur" garanti si aucun critère n'est saisi
+- Navbar sombre
+
+### 🔍 Mode Classique
+Recherche généraliste tous secteurs, sans filtres de stacks.
+
+> **Toggle Navbar :** le bouton affiche le mode *vers lequel on bascule* ("Classique" quand on est en DevJobs, "DevJobs" quand on est en Classique). Changer de mode réinitialise les résultats sans relancer de recherche automatique.
+
+### Fonctionnalités communes
 - **Recherche avancée** — mots-clés, localisation avec autocomplétion, distance, type de contrat, expérience, qualification, temps de travail
 - **Recherche par métier** — autocomplétion des codes ROME (base de tous les métiers référencés par France Travail)
 - **Pagination réelle** — affichage du total exact d'offres trouvées, navigation page par page, choix du nombre d'offres par page (10 / 25 / 50 / 100 / 150)
@@ -92,19 +105,33 @@ src/
 │   └── SearchForm/
 │       ├── index.js          # Formulaire complet
 │       ├── MainSearchFields.js       # Métier + localisation
-│       ├── AdvancedSearchFields.js   # 5 filtres avancés
+│       ├── AdvancedSearchFields.js   # Filtres avancés + stacks DevJobs
+│       ├── options.js                # Options selects + stackGroups
 │       └── MetierAutocomplete.js     # Autocomplétion ROME
 ├── hooks/
-│   ├── useJobs.js      # Pagination API standard
-│   └── useAllJobs.js   # Chargement parallèle (mode filtre salaire)
+│   ├── useJobs.js           # Pagination API standard
+│   ├── useAllJobs.js        # Chargement parallèle (mode filtre salaire)
+│   └── useMultiStackJobs.js # Requêtes parallèles par stack (mode DevJobs)
+├── context/
+│   └── AppContext.js        # Contexte global (favoris + isDevMode/toggleDevMode)
 ├── pages/
-│   └── HomePage.js     # Bascule automatique entre les deux modes
+│   └── HomePage.js          # Bascule automatique entre les trois modes
 ├── utils/
 │   ├── constants.js    # PAGE_SIZE_OPTIONS, DEFAULTS, MAX_TOTAL
 │   └── salaryUtils.js  # Conversion et normalisation des salaires
 server/
 ├── server.js           # API proxy Express + OAuth2 + Content-Range
 └── rome-codes.json     # Base locale des codes ROME
+```
+
+### Modes de recherche
+
+L'application détecte automatiquement le mode à utiliser :
+
+```
+Stacks sélectionnés  →  useMultiStackJobs  →  1 req/stack (150 max) → combine + déduplique
+Filtre salaire actif →  useAllJobs         →  8 requêtes parallèles → filtre client
+Sinon               →  useSearchJobs       →  pagination API directe
 ```
 
 ### Pagination et limites API

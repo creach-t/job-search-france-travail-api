@@ -4,7 +4,9 @@ import {
   contractOptions,
   qualificationOptions,
   workingHoursOptions,
+  stackGroups,
 } from './options';
+import { useAppContext } from '../../context/AppContext';
 
 const selectClass = "block w-full py-2 pl-3 pr-8 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-ft-blue focus:ring-1 focus:ring-ft-blue/30 focus:bg-white transition-colors appearance-none";
 const labelClass = "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5";
@@ -31,9 +33,63 @@ const AdvancedSearchFields = ({
   setWorkingHours,
   salaryMin,
   setSalaryMin,
+  stacks = [],
+  onStackToggle,
 }) => {
+  const { isDevMode } = useAppContext();
+
   return (
-    <div className="pt-5">
+    <div className="pt-5 space-y-4">
+
+      {/* ── Sélecteur multi-stack : DevJobs uniquement ── */}
+      {isDevMode && <div>
+        <label className={labelClass}>
+          Stack / Technologie
+          {stacks.length > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 bg-ft-blue text-white text-xs font-bold px-2 py-0.5 rounded-full normal-case tracking-normal">
+              {stacks.length} sélectionné{stacks.length > 1 ? 's' : ''}
+            </span>
+          )}
+        </label>
+
+        <div className="space-y-2">
+          {stackGroups.map(({ group, options }) => (
+            <div key={group} className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-16 shrink-0">
+                {group}
+              </span>
+              {options.map(opt => {
+                const active = stacks.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onStackToggle(opt.value)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      active
+                        ? 'bg-ft-blue text-white border-ft-blue shadow-sm'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-ft-blue hover:text-ft-blue'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {stacks.length >= 2 && (
+          <p className="mt-2 text-xs text-ft-blue flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {stacks.length} recherches parallèles · résultats combinés et dédupliqués
+          </p>
+        )}
+      </div>}
+
+      {/* ── Filtres classiques ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 
         <div>
