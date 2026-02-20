@@ -1,12 +1,12 @@
-# Dépendances
+# Dépendances (Docker fait son propre npm install)
 node_modules
 npm-debug.log
 yarn-debug.log
 yarn-error.log
 
-# Build
-/build
-/dist
+# Sources React (déjà compilées dans build/ par la CI)
+src
+public
 
 # Environnement
 .env
@@ -22,15 +22,14 @@ Thumbs.db
 # Éditeurs
 .idea
 .vscode
-*.sublime-project
-*.sublime-workspace
+.claude
 
-# Docker
-Dockerfile
-Dockerfile.dev
-docker-compose.yml
-.dockerignore
-
-# Git
+# Git / CI
 .git
 .gitignore
+.github
+
+# Divers
+*.md
+build_output.txt
+nul
