@@ -1,0 +1,57 @@
+services:
+  # Service backend (serveur Node.js)
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}
+    container_name: job-search-backend
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      - NODE_ENV=production
+    expose:
+      - "4059"
+    volumes:
+      - build_files:/app/build
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4059/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.devjobs.creachtheo.fr`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.services.backend.loadbalancer.server.port=4059"
+    networks:
+      - traefik-public
+
+  # Service frontend (serveur Nginx)
+  frontend:
+    image: nginx:alpine
+    container_name: job-search-frontend
+    restart: unless-stopped
+    expose:
+      - "4060"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - build_files:/app/build
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`devjobs.creachtheo.fr`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=4060"
+    networks:
+      - traefik-public
+
+volumes:
+  build_files:
+
+networks:
+  traefik-public:
+    external: true

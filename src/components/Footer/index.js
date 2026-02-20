@@ -25,6 +25,7 @@ const Footer = () => {
           <span className="text-sm text-gray-500">
             © {new Date().getFullYear()} Application exemple - Données fournies par France Travail
           </span>
+          <span className="block text-xs text-gray-400 mt-1">v1.0.0</span>
         </div>
       </div>
     </footer>
