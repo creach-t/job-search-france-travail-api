@@ -4,17 +4,20 @@ const SaveButton = ({ isSaved, onSave }) => {
   return (
     <button
       onClick={onSave}
-      className="text-gray-400 hover:text-yellow-500 focus:outline-none"
-      aria-label={isSaved ? "Retirer des favoris" : "Ajouter aux favoris"}
+      className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+        isSaved
+          ? 'text-ft-blue bg-blue-50 hover:bg-blue-100'
+          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+      }`}
+      aria-label={isSaved ? "Retirer des favoris" : "Sauvegarder l'offre"}
+      title={isSaved ? "Retirer des favoris" : "Sauvegarder l'offre"}
     >
       <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-6 w-6"
+        className="h-4 w-4"
         fill={isSaved ? "currentColor" : "none"}
         viewBox="0 0 24 24"
         stroke="currentColor"
-        strokeWidth={isSaved ? "0" : "2"}
-        color={isSaved ? "#EAB308" : "currentColor"}
+        strokeWidth={2}
       >
         <path
           strokeLinecap="round"

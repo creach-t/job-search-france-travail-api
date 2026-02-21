@@ -21,13 +21,17 @@ Recherche généraliste tous secteurs, sans filtres de stacks.
 > **Toggle Navbar :** le bouton affiche le mode *vers lequel on bascule* ("Classique" quand on est en DevJobs, "DevJobs" quand on est en Classique). Changer de mode réinitialise les résultats sans relancer de recherche automatique.
 
 ### Fonctionnalités communes
-- **Recherche avancée** — mots-clés, localisation avec autocomplétion, distance, type de contrat, expérience, qualification, temps de travail
-- **Recherche par métier** — autocomplétion des codes ROME (base de tous les métiers référencés par France Travail)
+- **Recherche avancée** — mots-clés, localisation avec autocomplétion, distance, type de contrat, expérience, qualification, temps de travail, salaire minimum
+- **Recherche par métier ROME** — autocomplétion des codes ROME dans les filtres avancés (base de tous les métiers référencés par France Travail), comptabilisé dans le badge de filtres actifs
+- **Fiche offre complète** — tous les champs API affichés : compétences, formations, qualités professionnelles, langues, permis, outils bureautiques, conditions d'exercice, déplacements, secteur d'activité, effectif entreprise, labels Handi-engagé / Entreprise adaptée
+- **Info entreprise en un clic** — cliquer sur le nom d'une entreprise (carte ou fiche détail) ouvre une infobulle avec logo, description, taille et lien web si disponibles
 - **Pagination réelle** — affichage du total exact d'offres trouvées, navigation page par page, choix du nombre d'offres par page (10 / 25 / 50 / 100 / 150)
 - **Filtre salaire global** — filtre les offres sur l'ensemble des résultats (pas seulement la page courante), avec chargement parallèle de toutes les pages
 - **Conversion des salaires** — normalisation en €/mois brut quel que soit le format de l'API (horaire, mensuel, annuel)
+- **Tags expérience lisibles** — les libellés longs de France Travail ("3 à 5 ans d'expérience") sont affichés en version courte ("3 ans d'exp.")
 - **Bouton Postuler intelligent** — détecte automatiquement le mode de postulation (lien direct, email, téléphone, informations de contact)
 - **Favoris** — sauvegarde locale des offres avec page dédiée
+- **Persistance de recherche** — les paramètres de recherche survivent à la navigation (retour depuis une fiche détail ou les favoris)
 - **Commune exacte** — distance `0 km` correctement gérée
 
 ---
@@ -36,7 +40,7 @@ Recherche généraliste tous secteurs, sans filtres de stacks.
 
 | Couche | Technologies |
 |--------|-------------|
-| Frontend | React 18, React Router 6, TailwindCSS 3, React Query v4 |
+| Frontend | React 18, React Router 6, TailwindCSS 3, React Query v4, Headless UI, Heroicons, Axios |
 | Backend | Node.js, Express 4, Axios |
 | Infrastructure | Docker, Nginx, Traefik (SSL auto) |
 | APIs externes | France Travail API v2, geo.api.gouv.fr |
@@ -98,24 +102,31 @@ npm run server     # Backend uniquement (avec hot reload)
 src/
 ├── components/
 │   ├── JobCard/
-│   │   ├── index.js          # Carte d'offre
+│   │   ├── index.js          # Carte d'offre (avec CompanyPopover)
 │   │   ├── ApplyButton.js    # Bouton postuler (6 modes détectés automatiquement)
-│   │   ├── JobTags.js        # Tags (contrat, expérience...)
+│   │   ├── JobTags.js        # Tags (contrat, expérience formatée...)
 │   │   └── SaveButton.js     # Favoris
-│   └── SearchForm/
-│       ├── index.js          # Formulaire complet
-│       ├── MainSearchFields.js       # Métier + localisation
-│       ├── AdvancedSearchFields.js   # Filtres avancés + stacks DevJobs
-│       ├── options.js                # Options selects + stackGroups
-│       └── MetierAutocomplete.js     # Autocomplétion ROME
+│   ├── SearchForm/
+│   │   ├── index.js                  # Formulaire complet
+│   │   ├── MainSearchFields.js       # Métier + localisation
+│   │   ├── AdvancedSearchFields.js   # Filtres avancés + stacks DevJobs + ROME
+│   │   ├── MetierAutocomplete.js     # Autocomplétion ROME (dans les filtres avancés)
+│   │   ├── SearchButton.js
+│   │   └── options.js                # Options selects + stackGroups
+│   └── ui/
+│       └── CompanyPopover.js  # Infobulle info entreprise (logo, description, taille, lien)
 ├── hooks/
 │   ├── useJobs.js           # Pagination API standard
 │   ├── useAllJobs.js        # Chargement parallèle (mode filtre salaire)
-│   └── useMultiStackJobs.js # Requêtes parallèles par stack (mode DevJobs)
+│   ├── useMultiStackJobs.js # Requêtes parallèles par stack (mode DevJobs)
+│   └── useGeolocation.js    # Géolocalisation
 ├── context/
-│   └── AppContext.js        # Contexte global (favoris + isDevMode/toggleDevMode)
+│   └── AppContext.js        # Contexte global (favoris + isDevMode + homeSearchParams)
 ├── pages/
-│   └── HomePage.js          # Bascule automatique entre les trois modes
+│   ├── HomePage.js          # Bascule automatique entre les trois modes
+│   ├── JobDetailsPage.js    # Fiche offre complète (tous champs API)
+│   ├── SavedJobsPage.js     # Favoris
+│   └── NotFoundPage.js      # 404
 ├── utils/
 │   ├── constants.js    # PAGE_SIZE_OPTIONS, DEFAULTS, MAX_TOTAL
 │   └── salaryUtils.js  # Conversion et normalisation des salaires
@@ -133,6 +144,10 @@ Stacks sélectionnés  →  useMultiStackJobs  →  1 req/stack (150 max) → co
 Filtre salaire actif →  useAllJobs         →  8 requêtes parallèles → filtre client
 Sinon               →  useSearchJobs       →  pagination API directe
 ```
+
+### Persistance de la recherche
+
+`homeSearchParams` est stocké dans `AppContext` (jamais démonté) et dans `sessionStorage`. Il n'est réinitialisé que lors d'un vrai changement de mode (DevJobs ↔ Classique), pas lors de la navigation entre pages.
 
 ### Pagination et limites API
 
@@ -160,6 +175,10 @@ L'API FT renvoie des libellés de la forme :
 - `"Annuel de 36000.0 Euros à 42000.0 Euros sur 12.0 mois"` → **3 000 €/mois**
 
 La détection de période utilise des expressions régulières avec word boundaries (`/\ban\b/`) pour éviter les faux positifs (ex: "dans", "plan"). L'heuristique `montant >= 5000` distingue les totaux annuels des montants mensuels.
+
+### Infobulle entreprise (CompanyPopover)
+
+Disponible sur le nom de l'entreprise dans les cartes d'offres et dans la fiche détail. S'active uniquement si l'API renvoie des données complémentaires (logo, description, URL ou taille). Fermeture au clic en dehors.
 
 ---
 

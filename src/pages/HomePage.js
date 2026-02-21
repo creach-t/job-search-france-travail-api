@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import SearchForm from '../components/SearchForm';
 import JobList from '../components/JobList';
 import Spinner from '../components/ui/Spinner';
@@ -101,8 +101,7 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
 
 // ─── Page principale ────────────────────────────────────────────────────────
 const HomePage = () => {
-  const { isDevMode } = useAppContext();
-  const [searchParams, setSearchParams] = useState(null); // pas d'auto-search au chargement
+  const { isDevMode, homeSearchParams: searchParams, updateHomeSearchParams } = useAppContext();
   const [currentPage, setCurrentPage] = useState(() => {
     try { return parseInt(sessionStorage.getItem('lastSearchPage') || '0', 10); }
     catch { return 0; }
@@ -111,12 +110,6 @@ const HomePage = () => {
     try { return parseInt(sessionStorage.getItem('lastPageSize') || String(DEFAULTS.PAGE_SIZE), 10); }
     catch { return DEFAULTS.PAGE_SIZE; }
   });
-
-  // Quand le mode change → reset des résultats (l'utilisateur relancera sa recherche)
-  useEffect(() => {
-    setSearchParams(null);
-    setCurrentPage(0);
-  }, [isDevMode]);
 
   // ── Détection des modes ──────────────────────────────────────────────────
   const stacks          = searchParams?.stacks ?? [];
@@ -151,7 +144,7 @@ const HomePage = () => {
   const handleSearch = (params) => {
     sessionStorage.setItem('lastSearchPage', '0');
     setCurrentPage(0);
-    setSearchParams(params);
+    updateHomeSearchParams(params);
   };
 
   const handlePageChange = (page) => {
@@ -333,40 +326,47 @@ const HomePage = () => {
             <Error message={display.errorMsg || "Une erreur s'est produite. Veuillez réessayer."} />
           ) : (
             <>
-              {/* Bannière trop de résultats (mode normal uniquement) */}
-              {display.isApiCapped && (
-                <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-                  <svg className="h-5 w-5 shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                  <span>
-                    Votre recherche correspond à <strong>{display.rawApiTotal?.toLocaleString('fr-FR')} offres</strong>.
-                    {' '}Seules les <strong>1 150 premières</strong> sont accessibles — affinez vos critères
-                    {' '}(localisation, type de contrat, expérience…) pour voir les résultats les plus pertinents.
-                  </span>
-                </div>
-              )}
-
-              {/* Bandeau info multi-stack */}
-              {display.mode === 'multi-stack' && display.stackSummary && (
-                <div className="mb-4 flex items-center gap-2 bg-ft-blue/5 border border-ft-blue/20 rounded-xl px-4 py-2.5 text-xs text-ft-blue">
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span>Résultats combinés — {display.stackSummary}</span>
-                </div>
-              )}
-
               {/* En-tête résultats */}
               <div className="flex flex-wrap items-center gap-3 mb-1">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  <span className="text-ft-blue font-bold">
-                    {display.totalCount !== null
-                      ? display.totalCount.toLocaleString('fr-FR')
-                      : display.jobs.length}
-                  </span>
-                  {' '}offre{display.totalCount !== 1 ? 's' : ''} trouvée{display.totalCount !== 1 ? 's' : ''}
-                </h2>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    <span className="text-ft-blue font-bold">
+                      {display.totalCount !== null
+                        ? display.totalCount.toLocaleString('fr-FR')
+                        : display.jobs.length}
+                    </span>
+                    {' '}offre{display.totalCount !== 1 ? 's' : ''} trouvée{display.totalCount !== 1 ? 's' : ''}
+                  </h2>
+
+                  {/* Tooltip limitation API */}
+                  {display.isApiCapped && (
+                    <div className="relative group">
+                      <button className="p-0.5 rounded-full text-amber-400 hover:text-amber-500 hover:bg-amber-50 transition-colors" aria-label="Limitation de l'API">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-72 bg-gray-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                        <strong>{display.rawApiTotal?.toLocaleString('fr-FR')} offres</strong> correspondent à votre recherche.
+                        {' '}Seules les <strong>1 150 premières</strong> sont accessibles — affinez vos critères pour des résultats plus ciblés.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tooltip multi-stack */}
+                  {display.mode === 'multi-stack' && display.stackSummary && (
+                    <div className="relative group">
+                      <button className="p-0.5 rounded-full text-ft-blue hover:bg-ft-blue/10 transition-colors" aria-label="Détail par stack">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </button>
+                      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-72 bg-gray-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                        Résultats combinés et dédupliqués — {display.stackSummary}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Progression chargement */}
                 {display.loadingLabel && (
