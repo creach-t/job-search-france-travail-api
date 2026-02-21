@@ -1,53 +1,61 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
-// Création du contexte
 const AppContext = createContext();
 
-// Hook personnalisé pour utiliser le contexte
 export const useAppContext = () => useContext(AppContext);
 
-// Fournisseur du contexte
 export const AppProvider = ({ children }) => {
   const [savedJobs, setSavedJobs] = useState([]);
   const [isDevMode, setIsDevMode] = useState(() => {
     try {
       const stored = localStorage.getItem('devJobsMode');
-      return stored === null ? true : stored === 'true'; // true par défaut
-    }
-    catch { return true; }
+      return stored === null ? true : stored === 'true';
+    } catch { return true; }
   });
 
-  // Chargement des offres sauvegardées depuis le localStorage au chargement
+  const [homeSearchParams, setHomeSearchParams] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('lastSearchParams');
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
+  });
+
+  // prevIsDevMode initialisé avec la valeur courante → pas de reset au premier rendu
+  const prevIsDevMode = useRef(isDevMode);
+  useEffect(() => {
+    if (prevIsDevMode.current !== isDevMode) {
+      prevIsDevMode.current = isDevMode;
+      setHomeSearchParams(null);
+      try { sessionStorage.removeItem('lastSearchParams'); } catch {}
+    }
+  }, [isDevMode]);
+
+  // Chargement initial depuis localStorage
   useEffect(() => {
     try {
       const storedJobs = JSON.parse(localStorage.getItem('savedJobs') || '[]');
       setSavedJobs(storedJobs);
-    } catch (error) {
-      console.error('Erreur lors du chargement des offres sauvegardées:', error);
+    } catch {
       setSavedJobs([]);
     }
   }, []);
 
-  // Fonction pour sauvegarder une offre
-  const saveJob = (job) => {
-    const updatedJobs = [...savedJobs, job];
-    setSavedJobs(updatedJobs);
-    localStorage.setItem('savedJobs', JSON.stringify(updatedJobs));
+  // Helper : met à jour l'état ET localStorage en une fois
+  const persist = (jobs) => {
+    setSavedJobs(jobs);
+    try { localStorage.setItem('savedJobs', JSON.stringify(jobs)); } catch {}
   };
 
-  // Fonction pour supprimer une offre sauvegardée
-  const removeJob = (jobId) => {
-    const updatedJobs = savedJobs.filter(job => job.id !== jobId);
-    setSavedJobs(updatedJobs);
-    localStorage.setItem('savedJobs', JSON.stringify(updatedJobs));
+  const saveJob        = (job)   => persist([...savedJobs, job]);
+  const removeJob      = (jobId) => persist(savedJobs.filter(j => j.id !== jobId));
+  const clearSavedJobs = ()      => persist([]);
+  const isJobSaved     = (jobId) => savedJobs.some(j => j.id === jobId);
+
+  const updateHomeSearchParams = (params) => {
+    setHomeSearchParams(params);
+    try { sessionStorage.setItem('lastSearchParams', JSON.stringify(params)); } catch {}
   };
 
-  // Vérifier si une offre est sauvegardée
-  const isJobSaved = (jobId) => {
-    return savedJobs.some(job => job.id === jobId);
-  };
-
-  // Toggle mode DevJobs
   const toggleDevMode = () => {
     setIsDevMode(prev => {
       const next = !prev;
@@ -56,18 +64,18 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  // Valeur fournie par le contexte
-  const value = {
-    savedJobs,
-    saveJob,
-    removeJob,
-    isJobSaved,
-    isDevMode,
-    toggleDevMode,
-  };
-
   return (
-    <AppContext.Provider value={value}>
+    <AppContext.Provider value={{
+      savedJobs,
+      saveJob,
+      removeJob,
+      clearSavedJobs,
+      isJobSaved,
+      isDevMode,
+      toggleDevMode,
+      homeSearchParams,
+      updateHomeSearchParams,
+    }}>
       {children}
     </AppContext.Provider>
   );

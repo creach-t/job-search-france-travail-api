@@ -20,25 +20,28 @@
 ├── src/                      # Code source frontend
 │   ├── components/           # Composants React réutilisables
 │   │   ├── JobCard/         # Composants de la carte d'offre
-│   │   │   ├── index.js     # Carte principale
-│   │   │   ├── ApplyButton.js # Bouton postuler (multi-mode)
-│   │   │   ├── JobTags.js   # Tags visuels
+│   │   │   ├── index.js     # Carte principale (flex-col, mt-auto, CompanyPopover)
+│   │   │   ├── ApplyButton.js # Bouton postuler (multi-mode, 5 priorités)
+│   │   │   ├── JobTags.js   # Tags visuels (formatExperience intégré)
 │   │   │   └── SaveButton.js # Sauvegarde favoris
 │   │   ├── JobList/         # Liste des offres
 │   │   ├── SearchForm/      # Formulaire de recherche
 │   │   │   ├── index.js     # Conteneur principal du formulaire
-│   │   │   ├── MainSearchFields.js    # Champs principaux (métier, lieu)
-│   │   │   ├── AdvancedSearchFields.js # Filtres avancés (5 selects + stack DevJobs)
-│   │   │   ├── MetierAutocomplete.js  # Autocomplete ROME
+│   │   │   ├── MainSearchFields.js    # Champs principaux (mots-clés, lieu, distance)
+│   │   │   ├── AdvancedSearchFields.js # Filtres avancés (ROME + stacks + 5 selects)
+│   │   │   ├── MetierAutocomplete.js  # Autocomplete ROME (dans filtres avancés)
 │   │   │   ├── SearchButton.js
 │   │   │   └── options.js   # Options des selects + stackGroups DevJobs
 │   │   ├── Navbar/          # Navigation (avec toggle DevJobs/Classique)
 │   │   ├── Footer/          # Pied de page
 │   │   └── ui/              # Composants UI génériques
+│   │       ├── CompanyPopover.js  # Popover infos entreprise (logo, desc, site, effectif)
+│   │       ├── Spinner.js
+│   │       └── Error.js
 │   ├── pages/               # Pages principales
 │   │   ├── HomePage.js      # Page d'accueil — recherche + pagination + filtre salaire + multi-stack
-│   │   ├── JobDetailsPage.js # Détails d'une offre
-│   │   ├── SavedJobsPage.js # Offres sauvegardées
+│   │   ├── JobDetailsPage.js # Détails complets d'une offre (toutes sections API)
+│   │   ├── SavedJobsPage.js # Offres sauvegardées (suppression individuelle)
 │   │   └── NotFoundPage.js  # Page 404
 │   ├── services/            # Services d'appel API
 │   │   ├── api.js          # Client API principal (range dynamique)
@@ -50,7 +53,7 @@
 │   │   ├── useMultiStackJobs.js # Hook multi-stack (DevJobs — requêtes parallèles par techno)
 │   │   └── useGeolocation.js # Hook de géolocalisation
 │   ├── context/             # Context API React
-│   │   └── AppContext.js   # Contexte global (favoris + isDevMode/toggleDevMode)
+│   │   └── AppContext.js   # Contexte global (favoris + devMode + homeSearchParams)
 │   └── utils/               # Utilitaires et constantes
 │       ├── constants.js    # Constantes + PAGE_SIZE_OPTIONS + DEFAULTS
 │       └── salaryUtils.js  # Conversion et formatage des salaires
@@ -114,6 +117,28 @@ sinon                  →  useSearchJobs      →  pagination API (range 0-49, 
 - `tempsPlein` - Temps plein/partiel
 - `codeROME` - Code ROME du métier (recherche précise)
 - `range` - Pagination (ex: `"0-49"`, `"50-99"`, max `"1000-1149"`)
+
+**Champs utilisés dans l'objet Offre (`GET /offres/{id}`) :**
+
+| Champ | Utilisé dans |
+|-------|-------------|
+| `intitule`, `description`, `dateCreation`, `dateActualisation` | JobCard + JobDetailsPage |
+| `lieuTravail` (libelle, latitude, longitude, codePostal) | JobCard + JobDetailsPage |
+| `entreprise` (nom, description, logo, url, entrepriseAdaptee) | CompanyPopover + section employeur |
+| `typeContrat`, `typeContratLibelle`, `natureContrat` | Tags + InfoRow Contrat |
+| `experienceLibelle`, `experienceCommentaire` | Tags (formaté) + section Profil |
+| `qualificationLibelle`, `dureeTravailLibelle`, `dureeTravailLibelleConverti` | Tags + InfoRow Durée |
+| `salaire` (libelle, commentaire, complement1, complement2) | Pill salaire + InfoRow Salaire |
+| `competences[]` (libelle, exigence) | Section Profil — badges Exigé/Souhaité |
+| `formations[]` (niveauLibelle, domaineLibelle, commentaire, exigence) | Section Profil |
+| `qualitesProfessionnelles[]` (libelle, description) | Section Profil |
+| `langues[]`, `permis[]` (libelle, exigence) | Section Profil |
+| `outilsBureautiques` | Section Profil |
+| `conditionExercice`, `complementExercice`, `contexteTravail` | InfoRow Conditions |
+| `nombrePostes`, `deplacementLibelle`, `secteurActiviteLibelle` | InfoRows |
+| `trancheEffectifEtab` | CompanyPopover + section Employeur |
+| `alternance`, `accessibleTH`, `employeurHandiEngage`, `entrepriseAdaptee`, `offresManqueCandidats` | Tags |
+| `contact` (nom, telephone, courriel, commentaire, urlPostulation, urlRecruteur) | ApplyButton + section Contact |
 
 **Limitations:**
 - Token valide 30 minutes (renouvelé automatiquement)
@@ -188,24 +213,47 @@ Le composant `ModeToggle` affiche **le mode de destination** (pas le mode couran
 | DevJobs (défaut) | "Classique" | Passe en mode Classique |
 | Classique | "DevJobs" | Repasse en DevJobs |
 
-Changer de mode **réinitialise les résultats** (setSearchParams → null) sans lancer de recherche automatique.
+Changer de mode **réinitialise les résultats et la recherche en cours** via `AppContext`.
 
 ### Contexte global (`AppContext.js`)
 
 ```javascript
+// Favoris
+const [savedJobs, setSavedJobs] = useState([]); // chargé depuis localStorage au mount
+const saveJob        = (job)   => persist([...savedJobs, job]);
+const removeJob      = (jobId) => persist(savedJobs.filter(j => j.id !== jobId));
+const clearSavedJobs = ()      => persist([]);
+const isJobSaved     = (jobId) => savedJobs.some(j => j.id === jobId);
+
+// Mode dev
 const [isDevMode, setIsDevMode] = useState(() => {
   const stored = localStorage.getItem('devJobsMode');
   return stored === null ? true : stored === 'true'; // DevJobs par défaut
 });
-const toggleDevMode = () => {
-  setIsDevMode(prev => {
-    const next = !prev;
-    localStorage.setItem('devJobsMode', String(next));
-    return next;
-  });
+
+// Recherche persistante (survit aux navigations)
+const [homeSearchParams, setHomeSearchParams] = useState(() => {
+  const s = sessionStorage.getItem('lastSearchParams');
+  return s ? JSON.parse(s) : null;
+});
+const prevIsDevMode = useRef(isDevMode); // init avec valeur courante → pas de reset au montage
+useEffect(() => {
+  if (prevIsDevMode.current !== isDevMode) {
+    prevIsDevMode.current = isDevMode;
+    setHomeSearchParams(null);
+    sessionStorage.removeItem('lastSearchParams');
+  }
+}, [isDevMode]);
+const updateHomeSearchParams = (params) => {
+  setHomeSearchParams(params);
+  sessionStorage.setItem('lastSearchParams', JSON.stringify(params));
 };
-// Exposé dans le context : { ..., isDevMode, toggleDevMode }
+
+// Exposé : { savedJobs, saveJob, removeJob, clearSavedJobs, isJobSaved,
+//            isDevMode, toggleDevMode, homeSearchParams, updateHomeSearchParams }
 ```
+
+**Pourquoi `homeSearchParams` est dans le contexte** : `HomePage` est démonté à chaque navigation (vers `/saved`, `/job/:id`, etc.). Stocker la recherche en état local la perdait à chaque remontage. Le contexte `AppProvider` (toujours monté) persiste ces paramètres sans ré-exécuter de recherche automatique.
 
 ### Multi-stack DevJobs (`useMultiStackJobs.js`)
 
@@ -236,10 +284,68 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 
 ## Points d'implémentation notables
 
+### Persistance de la recherche
+
+- `homeSearchParams` stocké dans `AppContext` (jamais démonté) + `sessionStorage` pour rechargement de page
+- `currentPage` et `pageSize` dans état local de `HomePage`, initialisés depuis `sessionStorage`
+- Changement de mode (`isDevMode`) → reset de `homeSearchParams` via `useEffect` avec `prevIsDevMode` ref (évite le reset au montage initial)
+
 ### Pagination
 - `range` calculé dynamiquement : `"${page * pageSize}-${page * pageSize + pageSize - 1}"`
 - Total réel extrait du header `Content-Range` de la réponse API
 - Page et taille de page persistées via `sessionStorage`
+
+### JobCard — mise en page
+- `flex flex-col` + `mt-auto` sur la zone basse → salaire/boutons toujours alignés en bas quelle que soit la hauteur du contenu
+- `line-clamp-2` sur le titre pour éviter les débordements
+- Barre de couleur gradient en haut (`h-1 from-ft-blue to-ft-darkblue`)
+- Salaire affiché en pill vert (connu) ou gris (non précisé)
+- Date relative : `relativeTime()` — aujourd'hui / hier / Xj / X sem / X mois
+
+### CompanyPopover (`src/components/ui/CompanyPopover.js`)
+- Affiché sur le nom de l'entreprise dans `JobCard` et `JobDetailsPage`
+- S'active uniquement si des infos supplémentaires existent (`logo`, `description`, `url`, ou `trancheEffectifEtab`)
+- Clic → popover avec logo (ou icône fallback), nom, effectif, description (`line-clamp-4`), lien site
+- Fermeture au clic extérieur via `useEffect` + `mousedown`
+- Chevron ▾ discret visible au survol uniquement
+
+### JobTags — formatage expérience
+```javascript
+const formatExperience = (exp) => {
+  if (/débutant/i.test(exp)) return 'Débutant';
+  const m = exp.match(/(\d+)\s*[Aa]n/);
+  if (m) return `${n} an${n > 1 ? 's' : ''} d'exp.`;
+  if (/exig/i.test(exp)) return 'Exp. exigée';
+  if (/souhait/i.test(exp)) return 'Exp. souhaitée';
+  return exp.length > 22 ? exp.slice(0, 20) + '…' : exp;
+};
+```
+
+### JobDetailsPage — sections complètes
+
+La fiche détail affiche toutes les informations disponibles dans l'API, organisées en sections :
+
+| Section | Champs affichés |
+|---------|----------------|
+| En-tête | intitule, entreprise (CompanyPopover), lieuTravail (+ lien carte), tags (contrat/exp/qualification/alternance/TH/handi/adapté/tension) |
+| Infos clés | Salaire (+ commentaire + compléments), Contrat, Durée (+ dates relatives), Postes (si >1), Déplacements, Secteur, Conditions (horaires, conditionExercice, contexteTravail, complementExercice) |
+| Description | HTML sanitisé |
+| Profil souhaité | Expérience (commentaire), Formations (niveauLibelle + domaineLibelle + commentaire + ExigenceBadge), Compétences (badges bleu=exigé/gris=souhaité), Qualités pro (+description), Outils bureautiques, Langues + Permis |
+| Employeur | description + lien site |
+| Contact | nom, téléphone, courriel, commentaire (URLs cliquables) |
+
+**`ExigenceBadge`** : `code === 'E'` → badge rouge "Exigé", sinon gris "Souhaité"
+
+**Bug corrigé** : `formations[].niveauFormationLibelle` → `formations[].niveauLibelle` (nom de champ réel dans l'API)
+
+### MetierAutocomplete — dans les filtres avancés
+
+Le composant `MetierAutocomplete` est maintenant dans la section **Filtres avancés** (pas dans la zone principale) :
+- Label : "Métier précis (Code ROME) — Recherche ultra-ciblée"
+- Placeholder adapté au mode (DevJobs vs Classique)
+- Confirmation : chip compact `Développeur web · M1805 · ciblage exact`
+- Sans emojis, icônes SVG cohérentes avec le reste du formulaire
+- Le badge de compteur sur "Filtres avancés" inclut `selectedMetier`
 
 ### Recherche multi-stack (DevJobs)
 - Bascule vers `useMultiStackJobs` quand `stacks.length > 0` dans searchParams
@@ -269,7 +375,9 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 
 ### Favoris
 - `localStorage` pour la persistance
-- Synchronisation automatique entre les pages via context
+- Toutes les pages utilisent `useAppContext()` — jamais `localStorage` directement
+- `SavedJobsPage` : bouton poubelle individuel à la même position que le bouton sauvegarder
+- `JobDetailsPage` : auto-suppression des favoris si l'offre retourne une erreur 404
 
 ## Constantes importantes (`src/utils/constants.js`)
 
@@ -293,6 +401,9 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];
 | Token expiré | OAuth2 valide 30 min | Cache serveur + renouvellement 60s avant expiration + retry sur 401 |
 | Paris renvoie 75056 | Code global vs arrondissements | Transformation auto vers 75101, suggestion d'arrondissements |
 | `distance: '0'` ignoré | `'0'` est falsy | Comparaison explicite `!== undefined && !== ''` dans `SearchForm/index.js`, `api.js`, `server.js` |
+| Recherche perdue à la navigation | `HomePage` démonté → état local perdu | `homeSearchParams` stocké dans `AppContext` (jamais démonté) |
+| Reset au montage du `useEffect([isDevMode])` | Effect s'exécute toujours au premier rendu | `prevIsDevMode = useRef(isDevMode)` — ne reset que sur un vrai changement |
+| `formations[].niveauFormationLibelle` undefined | Mauvais nom de champ | Le champ réel est `niveauLibelle` |
 
 ## Commandes
 

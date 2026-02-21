@@ -2,7 +2,6 @@ import { useState } from 'react';
 import MainSearchFields from './MainSearchFields';
 import AdvancedSearchFields from './AdvancedSearchFields';
 import SearchButton from './SearchButton';
-import MetierAutocomplete from './MetierAutocomplete';
 import { ChevronDownIcon, ChevronUpIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/20/solid';
 import { useAppContext } from '../../context/AppContext';
 
@@ -29,8 +28,8 @@ const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }
     );
   };
 
-  // Compter les filtres avancés actifs (chaque stack compte pour 1)
-  const activeFiltersCount = [experience, contractType, qualification, workingHours, salaryMin]
+  // Compter les filtres avancés actifs
+  const activeFiltersCount = [experience, contractType, qualification, workingHours, salaryMin, selectedMetier]
     .filter(Boolean).length + stacks.length;
 
   const handleSearch = (e) => {
@@ -93,14 +92,6 @@ const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }
             distance={distance}
             setDistance={setDistance}
           />
-
-          {/* Métier ROME */}
-          <div className="mt-5">
-            <MetierAutocomplete
-              selectedMetier={selectedMetier}
-              onSelect={setSelectedMetier}
-            />
-          </div>
         </div>
 
         {/* Séparateur avec bouton filtres */}
@@ -140,6 +131,8 @@ const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }
               setSalaryMin={setSalaryMin}
               stacks={stacks}
               onStackToggle={handleStackToggle}
+              selectedMetier={selectedMetier}
+              onMetierSelect={setSelectedMetier}
             />
           </div>
         )}

@@ -6,6 +6,7 @@ import {
   workingHoursOptions,
   stackGroups,
 } from './options';
+import MetierAutocomplete from './MetierAutocomplete';
 import { useAppContext } from '../../context/AppContext';
 
 const selectClass = "block w-full py-2 pl-3 pr-8 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-ft-blue focus:ring-1 focus:ring-ft-blue/30 focus:bg-white transition-colors appearance-none";
@@ -35,11 +36,24 @@ const AdvancedSearchFields = ({
   setSalaryMin,
   stacks = [],
   onStackToggle,
+  selectedMetier,
+  onMetierSelect,
 }) => {
   const { isDevMode } = useAppContext();
 
   return (
     <div className="pt-5 space-y-4">
+
+      {/* ── Métier précis (Code ROME) ── */}
+      <div>
+        <label className={labelClass}>
+          <span className="flex items-center gap-1.5">
+            Métier précis (Code ROME)
+            <span className="normal-case tracking-normal font-normal text-gray-400">— Recherche ultra-ciblée</span>
+          </span>
+        </label>
+        <MetierAutocomplete selectedMetier={selectedMetier} onSelect={onMetierSelect} />
+      </div>
 
       {/* ── Sélecteur multi-stack : DevJobs uniquement ── */}
       {isDevMode && <div>
