@@ -31,7 +31,10 @@ const resolveApplyMode = (job) => {
   // Téléphone uniquement
   if (contact.telephone) return { mode: 'phone', phone: contact.telephone };
 
-  return { mode: 'info' };
+  // Mode info : seulement si un nom ou un commentaire textuel est disponible
+  if (contact.nom || contact.commentaire) return { mode: 'info' };
+
+  return { mode: 'none' };
 };
 
 // Rendu des parties de texte avec liens cliquables
@@ -88,13 +91,44 @@ const ApplyButton = ({ job, isDetailed = false, fullWidth = false }) => {
     }
     if (apply.mode === 'info') {
       return (
-        <button onClick={() => setShowModal(true)}
-          className={`${baseClass} bg-white border border-gray-300 text-gray-700 hover:bg-gray-50`}>
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Contact
-        </button>
+        <>
+          <button onClick={() => setShowModal(true)}
+            className={`${baseClass} bg-white border border-gray-300 text-gray-700 hover:bg-gray-50`}>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Contact
+          </button>
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-gray-900/60" onClick={() => setShowModal(false)} />
+              <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Comment postuler</h3>
+                <div className="space-y-3">
+                  {job.contact?.nom && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <span className="text-gray-400 mt-0.5">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </span>
+                      <span className="text-gray-700">{job.contact.nom}</span>
+                    </div>
+                  )}
+                  {job.contact?.commentaire && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                      <TextWithLinks text={job.contact.commentaire} />
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setShowModal(false)}
+                  className="mt-6 w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors text-sm">
+                  Fermer
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       );
     }
     return null;
