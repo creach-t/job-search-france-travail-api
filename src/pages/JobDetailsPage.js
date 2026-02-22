@@ -49,12 +49,12 @@ const ExigenceBadge = ({ code }) => {
 };
 
 const InfoRow = ({ icon, label, children }) => (
-  <div className="flex gap-4 py-4 border-b border-gray-100 last:border-0">
-    <div className="flex items-start gap-2 w-36 shrink-0">
-      <span className="mt-0.5 text-gray-400">{icon}</span>
-      <span className="text-sm font-medium text-gray-500">{label}</span>
+  <div className="py-4 border-b border-gray-100 last:border-0 sm:flex sm:gap-4">
+    <div className="flex items-center gap-1.5 mb-1.5 sm:mb-0 sm:w-36 sm:shrink-0 sm:items-start sm:pt-0.5">
+      <span className="text-gray-400 shrink-0">{icon}</span>
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 sm:text-sm sm:font-medium sm:normal-case sm:tracking-normal sm:text-gray-500">{label}</span>
     </div>
-    <div className="flex-1 text-sm text-gray-900">{children}</div>
+    <div className="text-sm text-gray-900">{children}</div>
   </div>
 );
 
@@ -160,7 +160,7 @@ const JobDetailsPage = () => {
         <div className="h-1 bg-gradient-to-r from-ft-blue to-ft-darkblue" />
 
         {/* En-tête */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold text-gray-900 leading-snug">{job.intitule}</h1>
@@ -213,7 +213,7 @@ const JobDetailsPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-row sm:flex-col gap-2 shrink-0">
+            <div className="flex flex-row sm:flex-col gap-2 shrink-0 flex-wrap">
               <button
                 onClick={handleSaveJob}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
@@ -233,7 +233,7 @@ const JobDetailsPage = () => {
         </div>
 
         {/* Infos clés */}
-        <div className="px-6 pb-2 border-t border-gray-100">
+        <div className="px-4 sm:px-6 pb-2 border-t border-gray-100">
           <InfoRow
             label="Salaire"
             icon={
@@ -349,7 +349,7 @@ const JobDetailsPage = () => {
         </div>
 
         {/* Description */}
-        <div className="px-6 py-5 border-t border-gray-100">
+        <div className="px-4 sm:px-6 py-5 border-t border-gray-100">
           <SectionTitle>Description du poste</SectionTitle>
           <div
             className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
@@ -359,7 +359,7 @@ const JobDetailsPage = () => {
 
         {/* Profil souhaité */}
         {hasProfileSection && (
-          <div className="px-6 py-5 border-t border-gray-100">
+          <div className="px-4 sm:px-6 py-5 border-t border-gray-100">
             <SectionTitle>Profil souhaité</SectionTitle>
             <div className="space-y-5">
 
@@ -479,7 +479,7 @@ const JobDetailsPage = () => {
 
         {/* À propos de l'employeur — section étendue si description longue ou lien site */}
         {hasEmployeurSection && (
-          <div className="px-6 py-5 border-t border-gray-100">
+          <div className="px-4 sm:px-6 py-5 border-t border-gray-100">
             <SectionTitle>À propos de l'employeur</SectionTitle>
             <div className="space-y-3">
               {job.entreprise.description && (
@@ -504,7 +504,7 @@ const JobDetailsPage = () => {
 
         {/* Informations de contact */}
         {hasContactBlock && (
-          <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
+          <div className="px-4 sm:px-6 py-5 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
             <SectionTitle>Informations de contact</SectionTitle>
             <div className="space-y-2">
               {job.contact.nom && (

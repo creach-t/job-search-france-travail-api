@@ -20,8 +20,8 @@
 ├── src/                      # Code source frontend
 │   ├── components/           # Composants React réutilisables
 │   │   ├── JobCard/         # Composants de la carte d'offre
-│   │   │   ├── index.js     # Carte principale (flex-col, mt-auto, CompanyPopover)
-│   │   │   ├── ApplyButton.js # Bouton postuler (multi-mode, 5 priorités)
+│   │   │   ├── index.js     # Carte cliquable (useNavigate → /job/:id, stopPropagation sur ApplyButton/SaveButton)
+│   │   │   ├── ApplyButton.js # Bouton postuler (5 modes + modal Contact, prop fullWidth, masqué si aucune info)
 │   │   │   ├── JobTags.js   # Tags visuels (formatExperience intégré)
 │   │   │   └── SaveButton.js # Sauvegarde favoris
 │   │   ├── JobList/         # Liste des offres
@@ -294,8 +294,12 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 - `range` calculé dynamiquement : `"${page * pageSize}-${page * pageSize + pageSize - 1}"`
 - Total réel extrait du header `Content-Range` de la réponse API
 - Page et taille de page persistées via `sessionStorage`
+- **Mobile** : `ResultsBar` affiche uniquement prev/next + indicateur `"X / Y"` (pas de numéros de pages individuels) pour éviter l'overflow horizontal sur petits écrans
 
-### JobCard — mise en page
+### JobCard — mise en page et navigation
+- **Carte entière cliquable** : `onClick={() => navigate('/job/' + job.id)}` sur le `div` conteneur + `cursor-pointer`
+- **Exceptions** : `SaveButton`, `onRemove` et `ApplyButton` ont `e.stopPropagation()` pour ne pas déclencher la navigation
+- `ApplyButton` est enveloppé dans un `<span onClick={e => e.stopPropagation()}>` dans la carte
 - `flex flex-col` + `mt-auto` sur la zone basse → salaire/boutons toujours alignés en bas quelle que soit la hauteur du contenu
 - `line-clamp-2` sur le titre pour éviter les débordements
 - Barre de couleur gradient en haut (`h-1 from-ft-blue to-ft-darkblue`)
@@ -338,6 +342,8 @@ La fiche détail affiche toutes les informations disponibles dans l'API, organis
 
 **Bug corrigé** : `formations[].niveauFormationLibelle` → `formations[].niveauLibelle` (nom de champ réel dans l'API)
 
+**Layout mobile** : `InfoRow` empile verticalement sur mobile (label en ligne — icône + texte majuscules compact — au-dessus du contenu) et passe en ligne sur `sm:`. Les paddings internes sont `px-4 sm:px-6` et `p-4 sm:p-6` pour s'adapter aux petits écrans.
+
 ### MetierAutocomplete — dans les filtres avancés
 
 Le composant `MetierAutocomplete` est maintenant dans la section **Filtres avancés** (pas dans la zone principale) :
@@ -371,7 +377,14 @@ Le composant `MetierAutocomplete` est maintenant dans la section **Filtres avanc
 3. Email dans `courriel` → mailto
 4. URL dans `commentaire` → lien offre
 5. Téléphone → lien tel
-6. Sinon → modal infos de contact
+6. `nom` ou `commentaire` textuel → modal infos de contact
+7. Aucun de ces cas → **`null`** (bouton masqué)
+
+**Prop `fullWidth`** : quand la carte n'a plus de bouton "Voir le détail" à côté, `fullWidth` étend le bouton sur toute la largeur (`w-full justify-center`).
+
+**Modal Contact dans la carte** : le modal est rendu au niveau du composant (pas uniquement dans `isDetailed`) pour que le bouton Contact fonctionne depuis les cartes de résultats.
+
+**Piège** : `mode: 'info'` ne doit être retourné que si `contact.nom || contact.commentaire` — un objet `contact` vide (sans aucun champ utile) doit retourner `'none'`.
 
 ### Favoris
 - `localStorage` pour la persistance
@@ -404,6 +417,9 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];
 | Recherche perdue à la navigation | `HomePage` démonté → état local perdu | `homeSearchParams` stocké dans `AppContext` (jamais démonté) |
 | Reset au montage du `useEffect([isDevMode])` | Effect s'exécute toujours au premier rendu | `prevIsDevMode = useRef(isDevMode)` — ne reset que sur un vrai changement |
 | `formations[].niveauFormationLibelle` undefined | Mauvais nom de champ | Le champ réel est `niveauLibelle` |
+| Bouton Contact présent mais inactif | Modal uniquement dans `isDetailed`, non rendu dans la carte | Modal rendu dans le chemin non-détaillé aussi (Fragment `<>`) |
+| Bouton Contact affiché sans info utile | `resolveApplyMode` retournait `'info'` en dernier recours même si `contact` était vide | `'info'` uniquement si `contact.nom \|\| contact.commentaire`, sinon `'none'` |
+| Pagination déborde horizontalement sur mobile | Numéros de pages individuels trop nombreux sur petit écran | `ResultsBar` : boutons de pages masqués sur mobile (`sm:hidden`), remplacés par `"X / Y"` |
 
 ## Commandes
 

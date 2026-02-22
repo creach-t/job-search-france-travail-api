@@ -32,7 +32,7 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
       {/* Sélecteur de taille de page — compact */}
       <div className="flex items-center gap-1.5 text-sm text-gray-500">
-        <span className="hidden sm:inline text-xs text-gray-400">Par page</span>
+        <span className="text-xs text-gray-400">Par page</span>
         <div className="relative">
           <select
             value={pageSize}
@@ -54,45 +54,73 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
       {/* Info position + pagination */}
       <div className="flex items-center gap-2">
         {total > 0 && (
-          <span className="text-sm text-gray-400 shrink-0">
+          <span className="text-sm text-gray-400 shrink-0 hidden sm:inline">
             {showingFrom}–{showingTo} sur {total.toLocaleString('fr-FR')}
           </span>
         )}
         {totalPages > 1 && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage === 0 || isFetching}
-              className={`${btnBase} ${currentPage === 0 ? btnDisabled : btnNormal}`}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            {getPages().map((page, i) =>
-              page === '...' ? (
-                <span key={`e${i}`} className="px-1 text-gray-400 text-sm">…</span>
-              ) : (
-                <button
-                  key={page}
-                  onClick={() => onPageChange(page)}
-                  disabled={isFetching}
-                  className={`${btnBase} ${page === currentPage ? btnActive : btnNormal}`}
-                >
-                  {page + 1}
-                </button>
-              )
-            )}
-            <button
-              onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages - 1 || isFetching}
-              className={`${btnBase} ${currentPage >= totalPages - 1 ? btnDisabled : btnNormal}`}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
+          <>
+            {/* Mobile: prev / "X / Y" / next uniquement */}
+            <div className="flex items-center gap-1 sm:hidden">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 0 || isFetching}
+                className={`${btnBase} ${currentPage === 0 ? btnDisabled : btnNormal}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="text-sm text-gray-500 px-2 shrink-0">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || isFetching}
+                className={`${btnBase} ${currentPage >= totalPages - 1 ? btnDisabled : btnNormal}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Desktop: pagination complète avec numéros de pages */}
+            <div className="hidden sm:flex items-center gap-1">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 0 || isFetching}
+                className={`${btnBase} ${currentPage === 0 ? btnDisabled : btnNormal}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              {getPages().map((page, i) =>
+                page === '...' ? (
+                  <span key={`e${i}`} className="px-1 text-gray-400 text-sm">…</span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => onPageChange(page)}
+                    disabled={isFetching}
+                    className={`${btnBase} ${page === currentPage ? btnActive : btnNormal}`}
+                  >
+                    {page + 1}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || isFetching}
+                className={`${btnBase} ${currentPage >= totalPages - 1 ? btnDisabled : btnNormal}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
