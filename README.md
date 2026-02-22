@@ -24,12 +24,13 @@ Recherche généraliste tous secteurs, sans filtres de stacks.
 - **Recherche avancée** — mots-clés, localisation avec autocomplétion, distance, type de contrat, expérience, qualification, temps de travail, salaire minimum
 - **Recherche par métier ROME** — autocomplétion des codes ROME dans les filtres avancés (base de tous les métiers référencés par France Travail), comptabilisé dans le badge de filtres actifs
 - **Fiche offre complète** — tous les champs API affichés : compétences, formations, qualités professionnelles, langues, permis, outils bureautiques, conditions d'exercice, déplacements, secteur d'activité, effectif entreprise, labels Handi-engagé / Entreprise adaptée
+- **Cartes cliquables** — cliquer n'importe où sur une carte ouvre la fiche détail (sauf le bouton Postuler)
 - **Info entreprise en un clic** — cliquer sur le nom d'une entreprise (carte ou fiche détail) ouvre une infobulle avec logo, description, taille et lien web si disponibles
-- **Pagination réelle** — affichage du total exact d'offres trouvées, navigation page par page, choix du nombre d'offres par page (10 / 25 / 50 / 100 / 150)
+- **Pagination réelle** — affichage du total exact d'offres trouvées, navigation page par page, choix du nombre d'offres par page (10 / 25 / 50 / 100 / 150) — pagination compacte (prev/next + numéro) sur mobile
 - **Filtre salaire global** — filtre les offres sur l'ensemble des résultats (pas seulement la page courante), avec chargement parallèle de toutes les pages
 - **Conversion des salaires** — normalisation en €/mois brut quel que soit le format de l'API (horaire, mensuel, annuel)
 - **Tags expérience lisibles** — les libellés longs de France Travail ("3 à 5 ans d'expérience") sont affichés en version courte ("3 ans d'exp.")
-- **Bouton Postuler intelligent** — détecte automatiquement le mode de postulation (lien direct, email, téléphone, informations de contact)
+- **Bouton Postuler intelligent** — détecte automatiquement le mode de postulation (lien direct, email, téléphone, informations de contact) ; ne s'affiche que si des informations utiles sont disponibles
 - **Favoris** — sauvegarde locale des offres avec page dédiée
 - **Persistance de recherche** — les paramètres de recherche survivent à la navigation (retour depuis une fiche détail ou les favoris)
 - **Commune exacte** — distance `0 km` correctement gérée
@@ -102,8 +103,8 @@ npm run server     # Backend uniquement (avec hot reload)
 src/
 ├── components/
 │   ├── JobCard/
-│   │   ├── index.js          # Carte d'offre (avec CompanyPopover)
-│   │   ├── ApplyButton.js    # Bouton postuler (6 modes détectés automatiquement)
+│   │   ├── index.js          # Carte cliquable (→ fiche détail), useNavigate, stopPropagation sur ApplyButton
+│   │   ├── ApplyButton.js    # Bouton postuler (5 modes + modal Contact), prop fullWidth
 │   │   ├── JobTags.js        # Tags (contrat, expérience formatée...)
 │   │   └── SaveButton.js     # Favoris
 │   ├── SearchForm/
