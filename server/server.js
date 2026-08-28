@@ -62,7 +62,9 @@ const FRANCE_TRAVAIL_API = {
 // FT_STATS_SCOPE : scope OAuth affiché sur la fiche du produit dans francetravail.io
 // FT_STATS_BASE  : base des endpoints (ex: https://api.francetravail.io/partenaire/<produit>/v1)
 const STATS_SCOPE = process.env.FT_STATS_SCOPE || null;
-const STATS_BASE = (process.env.FT_STATS_BASE || '').replace(/\/$/, '') || null;
+// Base par défaut connue (API SODE) ; surchargeable via FT_STATS_BASE
+const STATS_BASE = (process.env.FT_STATS_BASE
+  || 'https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1').replace(/\/$/, '');
 
 // API geo.api.gouv.fr pour les communes
 const GEO_API_URL = 'https://geo.api.gouv.fr/communes';

@@ -1,19 +1,20 @@
 /**
- * Client de l'API « Marché du travail » (statistiques, tendances, tension).
- * Passe par le proxy serveur /api/marche-travail (scope + base configurés côté serveur).
+ * Client de l'API « Statistiques sur les offres et demandes d'emploi » (SODE).
+ * Scope : offresetdemandesemploi api_stats-offres-demandes-emploiv1
+ * Base (serveur, FT_STATS_BASE) : https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1
  *
- * ⚠️ Les endpoints et la forme des payloads/réponses ci-dessous sont des VALEURS PAR
- * DÉFAUT à confirmer avec la « Documentation métier » (swagger) affichée sur la fiche
- * du produit dans francetravail.io. Tout est centralisé ici : un seul endroit à ajuster.
- * Tant que ce n'est pas confirmé/branché, le dashboard n'affiche AUCUN chiffre inventé —
- * il indique simplement « source à connecter ».
+ * Endpoints & schémas relevés sur l'implémentation officielle dataemploi.francetravail.fr
+ * (même API sous-jacente). Passe par le proxy serveur /api/marche-travail.
+ *
+ * Données TRIMESTRIELLES/ANNUELLES, source France Travail / DARES. Aucun chiffre inventé :
+ * si l'API n'est pas configurée ou répond mal, le hook renvoie configured=false / erreur.
  */
 import axios from 'axios';
 import { API } from '../utils/constants';
 
 const client = axios.create({ baseURL: API.BASE_URL, headers: { 'Content-Type': 'application/json' } });
 
-/** Indique si le serveur a bien scope + base configurés. */
+/** Le serveur a-t-il scope + base configurés ? */
 export const getMarketConfig = async () => {
   try {
     const { data } = await client.get('/marche-travail/config');
@@ -23,63 +24,76 @@ export const getMarketConfig = async () => {
   }
 };
 
-/** Appel générique du proxy. */
-export const queryMarcheTravail = async (endpoint, payload = {}, method = 'POST') => {
-  const { data } = await client.post('/marche-travail', { endpoint, method, payload });
-  return data; // { data, total }
+/** Appel générique du proxy → { data, total }. */
+export const queryMarcheTravail = async (endpoint, payload = {}) => {
+  const { data } = await client.post('/marche-travail', { endpoint, method: 'POST', payload });
+  return data?.data ?? data;
 };
 
-// ── Config des requêtes (À CONFIRMER via swagger portail) ─────────────────────
-// Codes de territoire France Travail : 'NAT' (national), 'REG', 'DEP', 'BAS' (bassin).
-export const MT = {
-  // Base de payload commune : territoire + activité (métier ROME) éventuel
-  baseSelection: ({ codeTypeTerritoire = 'NAT', codeTerritoire = 'FR', codeRome } = {}) => ({
-    codeTypeTerritoire,
-    codeTerritoire,
-    ...(codeRome ? { codeTypeActivite: 'ROME', codeActivite: codeRome } : {}),
-  }),
-
-  // Endpoints (chemins relatifs à FT_STATS_BASE) — à ajuster selon le swagger.
-  endpoints: {
-    offresEnregistrees: '/offre-enregistree/stat',
-    dynamiqueEmploi: '/dynamique-emploi/stat',
-    difficultesRecrutement: '/difficulte-recrutement/stat',
-    salairesProposes: '/salaire/stat',
-  },
+// Endpoints SODE (relatifs à FT_STATS_BASE)
+export const MT_ENDPOINTS = {
+  statOffres: '/offres/stat-offres',
+  evolution: '/evolution/indicateur',
+  faciliteRecrutement: '/evolution/facilite-recrutement',
 };
 
-// ── Normaliseurs défensifs (tolèrent plusieurs formes de réponse) ─────────────
+/**
+ * Construit la sélection (payload). Territoire : NAT/FR, REG/<code>, DEP/<code>.
+ * Un métier ROME optionnel cible l'activité.
+ */
+export const buildSelection = ({ codeTypeTerritoire = 'NAT', codeTerritoire = 'FR', codeRome } = {}) => ({
+  codeTypeTerritoire,
+  codeTerritoire,
+  ...(codeRome ? { codeTypeActivite: 'ROME', codeActivite: codeRome } : {}),
+});
 
-const asArray = (d) => (Array.isArray(d) ? d : Array.isArray(d?.listeValeursParPeriode) ? d.listeValeursParPeriode : Array.isArray(d?.resultats) ? d.resultats : []);
+// ── Parseurs (schémas réels) ─────────────────────────────────────────────────
 
-/** Extrait une série temporelle [{period, value}] d'une réponse. */
-export const normalizeSeries = (resp) => {
-  const rows = asArray(resp?.data ?? resp);
-  return rows
-    .map((r) => ({
-      period: r.periode ?? r.date ?? r.trimestre ?? r.libellePeriode ?? '',
-      value: Number(r.valeur ?? r.nombre ?? r.value ?? r.effectif ?? 0),
-    }))
-    .filter((r) => r.period !== '' && Number.isFinite(r.value));
+/** stat-offres → volume principal + période + part CDI. */
+export const parseStatOffres = (resp) => {
+  const row = resp?.listeValeursParPeriode?.[0];
+  if (!row) return null;
+  const cdi = (row.listeValeurParCaract || []).find((c) => c.codeTypeCaract === 'TYPECTR' && c.codeCaract === 'CDI');
+  const cadre = (row.listeValeurParCaract || []).find((c) => c.codeTypeCaract === 'NIVQUAL' && c.codeCaract === 'CADRE');
+  return {
+    nombre: Number(row.valeurPrincipaleNombre) || null,
+    periode: row.libPeriode || '',
+    cdiPct: cdi ? Number(cdi.pourcentage) : null,
+    cadrePct: cadre ? Number(cadre.pourcentage) : null,
+  };
 };
 
-/** Extrait une valeur scalaire (dernier point ou champ direct). */
-export const normalizeScalar = (resp) => {
-  const rows = asArray(resp?.data ?? resp);
-  if (rows.length) {
-    const last = rows[rows.length - 1];
-    return Number(last.valeur ?? last.nombre ?? last.value ?? 0);
-  }
-  const d = resp?.data ?? resp;
-  const v = d?.valeur ?? d?.indicateur ?? d?.value;
-  return v != null ? Number(v) : null;
+/** evolution/indicateur → volume + évolution % vs période de comparaison. */
+export const parseEvolution = (resp) => {
+  const evo = resp?.evolutionTerritoire;
+  if (!evo) return null;
+  return {
+    nombre: Number(evo.nombre) || null,
+    growthPct: evo.evolutionPourcentage != null ? Number(evo.evolutionPourcentage) : null,
+    periode: resp?.periode?.libellePeriode || '',
+    periodeComparaison: resp?.periodeComparaison?.libellePeriode || '',
+  };
 };
 
-/** Croissance % entre les 2 derniers points d'une série. */
-export const growthFromSeries = (series) => {
-  if (series.length < 2) return null;
-  const prev = series[series.length - 2].value;
-  const last = series[series.length - 1].value;
-  if (!prev) return null;
-  return ((last - prev) / prev) * 100;
+/** facilite-recrutement → indice de tension (1..5) + facteurs. */
+export const parseTension = (resp) => {
+  const p = resp?.evolutionPersp2?.persp2;
+  if (!p) return null;
+  return {
+    value: p.valPrincPersp != null ? Number(p.valPrincPersp) : null,
+    label: p.libelleNomenclature || 'Tension',
+    facteurs: (resp.evolutionPersp2.listeSousPersp2 || []).map((s) => ({
+      label: s.libelleNomenclature,
+      value: Number(s.valPrincPersp),
+    })),
+  };
+};
+
+// Libellés lisibles de l'indice de tension (échelle France Travail 1→5)
+export const TENSION_LABELS = {
+  1: 'Très faible',
+  2: 'Faible',
+  3: 'Modérée',
+  4: 'Élevée',
+  5: 'Très élevée',
 };

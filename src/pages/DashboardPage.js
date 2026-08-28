@@ -46,61 +46,86 @@ const DetailLink = ({ to, children }) => (
   </Link>
 );
 
-// ── Tendance historique officielle (API Marché du travail) ───────────────────
+// ── Tendance officielle (API SODE — offres & demandes d'emploi) ──────────────
+const TensionMeter = ({ value }) => (
+  <div className="flex items-center gap-1" aria-label={`Tension ${value} sur 5`}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <span key={i} className="h-4 w-4 rounded"
+        style={{ background: i <= value ? (value >= 4 ? '#F43F5E' : value >= 3 ? '#F59E0B' : '#10B981') : 'rgb(var(--line)/0.2)' }} />
+    ))}
+  </div>
+);
+
 const MarketTrendCard = () => {
   const mt = useMarketTrends({ codeTypeTerritoire: 'NAT', codeTerritoire: 'FR' });
 
   // Non configurée → on le dit, pas de faux chiffres
   if (!mt.configured) {
     return (
-      <Card title="Tendance historique (source officielle)" subtitle="API Marché du travail — France Travail / DARES">
+      <Card title="Tendance officielle (offres & demandes)" subtitle="API Statistiques France Travail / DARES">
         <div className="text-sm text-ink-muted">
-          <p>
-            Pour afficher l'<strong>évolution trimestrielle réelle</strong> des offres, la croissance et la tension par métier,
-            connectez l'API « Marché du travail ».
-          </p>
+          <p>Pour l'<strong>évolution réelle</strong> des offres, la croissance et la tension de recrutement, connectez l'API SODE.</p>
           <p className="mt-2 text-xs text-ink-faint">
-            À renseigner dans <code className="text-accent">server/.env</code> :{' '}
-            <code>FT_STATS_SCOPE</code> (scope de la fiche produit) et <code>FT_STATS_BASE</code> (base des endpoints).
+            Dans <code className="text-accent">server/.env</code> :{' '}
+            <code>FT_STATS_SCOPE=offresetdemandesemploi api_stats-offres-demandes-emploiv1</code> et{' '}
+            <code>FT_STATS_BASE=https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1</code>.
           </p>
         </div>
       </Card>
     );
   }
 
-  const points = mt.trend.map((t) => ({ label: t.period, value: t.value }));
+  const { evolution, statOffres, tension } = mt;
+  const headlineNombre = evolution?.nombre ?? statOffres?.nombre ?? null;
+  const periode = evolution?.periode || statOffres?.periode || '';
 
   return (
     <Card
-      title="Tendance historique (source officielle)"
-      subtitle={mt.source}
-      action={mt.growthPct != null && (
-        <span className={`text-xs font-bold ${mt.growthPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {mt.growthPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(mt.growthPct * 10) / 10)} % <span className="font-normal text-ink-faint">vs trim. préc.</span>
+      title="Tendance officielle (offres & demandes)"
+      subtitle={`${mt.source}${periode ? ` · ${periode}` : ''}`}
+      action={evolution?.growthPct != null && (
+        <span className={`text-sm font-bold ${evolution.growthPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {evolution.growthPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(evolution.growthPct * 10) / 10)} %
+          <span className="font-normal text-ink-faint"> vs {evolution.periodeComparaison || 'période préc.'}</span>
         </span>
       )}
     >
       {mt.isLoading ? (
-        <p className="text-sm text-ink-faint py-8 text-center">Chargement des séries…</p>
+        <p className="text-sm text-ink-faint py-8 text-center">Chargement des indicateurs…</p>
       ) : mt.isError ? (
         <div className="text-sm text-amber-300">
           Source connectée, mais la requête n'a rien renvoyé d'exploitable.
           <span className="block text-xs text-ink-faint mt-1">
-            Ajustez les endpoints dans <code>src/services/marcheTravail.js</code> selon le swagger du portail.
+            Vérifie <code>FT_STATS_BASE</code> / les endpoints dans <code>src/services/marcheTravail.js</code>.
             {mt.error?.message ? ` (${mt.error.message})` : ''}
           </span>
         </div>
-      ) : points.length ? (
-        <>
-          <MiniArea points={points} />
-          {mt.tensionValue != null && (
-            <p className="mt-2 text-xs text-ink-muted">
-              Indicateur de tension / difficulté de recrutement : <strong className="text-ink">{mt.tensionValue}</strong>
-            </p>
-          )}
-        </>
       ) : (
-        <p className="text-sm text-ink-faint py-8 text-center">Aucune série disponible pour ce périmètre.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-ink-faint">Offres collectées</p>
+            <p className="text-2xl font-extrabold text-ink tabular-nums">{fmt(headlineNombre)}</p>
+          </div>
+          {statOffres?.cdiPct != null && (
+            <div>
+              <p className="text-xs text-ink-faint">Part de CDI</p>
+              <p className="text-2xl font-extrabold text-ink tabular-nums">{statOffres.cdiPct} %</p>
+            </div>
+          )}
+          {statOffres?.cadrePct != null && (
+            <div>
+              <p className="text-xs text-ink-faint">Part de cadres</p>
+              <p className="text-2xl font-extrabold text-ink tabular-nums">{statOffres.cadrePct} %</p>
+            </div>
+          )}
+          {tension?.value != null && (
+            <div>
+              <p className="text-xs text-ink-faint mb-1">Tension recrutement</p>
+              <TensionMeter value={tension.value} />
+              <p className="text-xs text-ink-muted mt-1">{tension.value}/5</p>
+            </div>
+          )}
+        </div>
       )}
     </Card>
   );
