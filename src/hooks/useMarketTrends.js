@@ -37,12 +37,24 @@ export const useMarketTrends = (scope = {}) => {
       const tensionData = tension.status === 'fulfilled' ? parseTension(tension.value) : null;
 
       if (!statOffres && !evolution && !tensionData) {
-        const firstErr = [stat, evo, tension].find((r) => r.status === 'rejected');
-        throw new Error(
-          firstErr?.reason?.response?.data?.detail?.message ||
-          firstErr?.reason?.response?.data?.message ||
-          'Réponse SODE non exploitable (vérifier base/endpoints du swagger)'
-        );
+        // Diagnostic précis : statut d'erreur OU clés de la réponse 200 non parsée
+        const diag = [['stat-offres', stat], ['evolution', evo], ['tension', tension]]
+          .map(([name, r]) => {
+            if (r.status === 'rejected') {
+              const d = r.reason?.response?.data;
+              const status = d?.status || r.reason?.response?.status || '';
+              const detail = d?.detail || d?.message || r.reason?.message || '';
+              return `${name}: ERR ${status} ${JSON.stringify(detail).slice(0, 140)}`;
+            }
+            const v = r.value;
+            const keys = v && typeof v === 'object' ? Object.keys(v).slice(0, 10).join(',') : typeof v;
+            return `${name}: 200 keys=[${keys}]`;
+          })
+          .join('  |  ');
+        // Trace complète en console pour inspection
+        // eslint-disable-next-line no-console
+        console.warn('[SODE] réponses:', { stat: stat.value ?? stat.reason?.response?.data, evo: evo.value ?? evo.reason?.response?.data, tension: tension.value ?? tension.reason?.response?.data });
+        throw new Error(diag);
       }
       return { statOffres, evolution, tensionData };
     },

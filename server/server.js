@@ -307,10 +307,11 @@ app.post('/api/marche-travail', async (req, res) => {
     const totalMatch = contentRange.match(/\/(\d+)$/);
     res.json({ data: response.data, total: totalMatch ? parseInt(totalMatch[1], 10) : null });
   } catch (error) {
-    console.error('Erreur API Marché du travail:', error.response?.status, error.response?.data || error.message);
+    console.error('Erreur API Marché du travail:', method, url, error.response?.status, error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
       message: 'Erreur API Marché du travail',
       status: error.response?.status || 500,
+      url,
       detail: error.response?.data || error.message,
     });
   }
