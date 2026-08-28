@@ -13,10 +13,10 @@ const SavedJobsPage = () => {
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+        <h1 className="text-3xl font-extrabold text-ink sm:text-4xl">
           Vos offres sauvegardées
         </h1>
-        <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+        <p className="mt-3 max-w-2xl mx-auto text-xl text-ink-muted sm:mt-4">
           Retrouvez ici toutes les offres d'emploi que vous avez sauvegardées
         </p>
       </div>
@@ -24,7 +24,7 @@ const SavedJobsPage = () => {
       {savedJobs.length > 0 ? (
         <>
           <div className="mb-6 flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-ink">
               {savedJobs.length} {savedJobs.length === 1 ? 'offre sauvegardée' : 'offres sauvegardées'}
             </h2>
             <button
@@ -49,12 +49,12 @@ const SavedJobsPage = () => {
           </div>
         </>
       ) : (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <svg className="h-14 w-14 text-gray-300 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="text-center py-12 glass-card rounded-xl border border-[rgb(var(--line)/0.15)] shadow-sm">
+          <svg className="h-14 w-14 text-ink-faint mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">Aucune offre sauvegardée</h3>
-          <p className="mt-2 text-sm text-gray-500">
+          <h3 className="mt-4 text-lg font-medium text-ink">Aucune offre sauvegardée</h3>
+          <p className="mt-2 text-sm text-ink-muted">
             Utilisez l'icône de marque-page sur les offres qui vous intéressent pour les retrouver ici.
           </p>
         </div>

@@ -4,8 +4,20 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { useAllJobs } from '../hooks/useAllJobs';
-import { ROUTES } from '../utils/constants';
+
+// Fonds de carte selon le thème (CARTO — cohérent avec le glassmorphism)
+const TILES = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  },
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  },
+};
 
 // ── Super-cluster (groupe de villes au niveau pays/région) ──────────────────
 // Affiché quand plusieurs villes proches sont regroupées en dézoom
@@ -108,6 +120,8 @@ const CityPopup = ({ city, onView }) => (
 // ── Page principale ──────────────────────────────────────────────────────────
 const MapPage = () => {
   const { homeSearchParams, updateHomeSearchParams } = useAppContext();
+  const { isDark } = useTheme();
+  const tiles = isDark ? TILES.dark : TILES.light;
   const navigate = useNavigate();
 
   // Convertit les stacks en keywords pour useAllJobs
@@ -172,7 +186,7 @@ const MapPage = () => {
             }
           : {}),
       });
-      navigate(ROUTES.HOME);
+      navigate('/offres');
     },
     [homeSearchParams, updateHomeSearchParams, navigate]
   );
@@ -196,34 +210,34 @@ const MapPage = () => {
     <div className="flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
 
       {/* ── Barre de statut ─────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3 text-sm z-10 min-h-[40px]">
+      <div className="flex-shrink-0 bg-[var(--glass-bg-strong)] backdrop-blur-xl border-b border-[rgb(var(--line)/0.12)] px-4 py-2 flex items-center gap-3 text-sm z-10 min-h-[40px]">
         {homeSearchParams ? (
           <>
-            <span className="font-medium text-gray-700 truncate" title={searchSummary}>
+            <span className="font-medium text-ink truncate" title={searchSummary}>
               {searchSummary}
             </span>
             {isFetching && (
-              <span className="flex items-center gap-1.5 text-ft-blue text-xs shrink-0">
+              <span className="flex items-center gap-1.5 text-accent text-xs shrink-0">
                 <SmallSpinner />
                 {loadedPages}/{totalApiPages}
               </span>
             )}
             {!isLoading && cityMarkers.length > 0 && (
-              <span className="ml-auto text-xs text-gray-400 shrink-0 whitespace-nowrap">
-                <span className="font-semibold text-gray-700">{cityMarkers.length}</span> ville{cityMarkers.length > 1 ? 's' : ''}
+              <span className="ml-auto text-xs text-ink-faint shrink-0 whitespace-nowrap">
+                <span className="font-semibold text-ink">{cityMarkers.length}</span> ville{cityMarkers.length > 1 ? 's' : ''}
                 {' · '}
-                <span className="font-semibold text-gray-700">{jobsWithCoords.length.toLocaleString('fr-FR')}</span> offre{jobsWithCoords.length > 1 ? 's' : ''}
+                <span className="font-semibold text-ink">{jobsWithCoords.length.toLocaleString('fr-FR')}</span> offre{jobsWithCoords.length > 1 ? 's' : ''}
                 {total && total > allJobs.length && (
-                  <span className="text-gray-300"> / {total.toLocaleString('fr-FR')}</span>
+                  <span className="text-ink-faint"> / {total.toLocaleString('fr-FR')}</span>
                 )}
               </span>
             )}
           </>
         ) : (
-          <span className="text-gray-500">
+          <span className="text-ink-muted">
             Lancez une recherche depuis{' '}
-            <Link to={ROUTES.HOME} className="text-ft-blue hover:underline font-medium">
-              l'accueil
+            <Link to="/offres" className="text-accent hover:underline font-medium">
+              la recherche
             </Link>{' '}
             pour afficher les offres sur la carte.
           </span>
@@ -239,10 +253,7 @@ const MapPage = () => {
           style={{ height: '100%', width: '100%' }}
           preferCanvas
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
+          <TileLayer key={isDark ? 'dark' : 'light'} url={tiles.url} attribution={tiles.attribution} />
 
           {/* Les villes clustèrent entre elles jusqu'au zoom 10 */}
           <MarkerClusterGroup
@@ -269,28 +280,28 @@ const MapPage = () => {
 
         {/* Overlay chargement initial */}
         {isLoading && mapParams && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-[1000]">
+          <div className="absolute inset-0 bg-[var(--app-bg)]/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
             <div className="flex flex-col items-center gap-3">
-              <svg className="animate-spin h-10 w-10 text-ft-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-10 w-10 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <p className="text-sm text-gray-600">Chargement des offres…</p>
+              <p className="text-sm text-ink-muted">Chargement des offres…</p>
             </div>
           </div>
         )}
 
         {/* État vide — pas de recherche active */}
         {!mapParams && (
-          <div className="absolute inset-0 bg-ft-gray flex items-center justify-center z-[1000]">
+          <div className="absolute inset-0 bg-[var(--app-bg)]/90 backdrop-blur-sm flex items-center justify-center z-[1000]">
             <div className="text-center px-6">
-              <svg className="mx-auto h-16 w-16 text-gray-300 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mx-auto h-16 w-16 text-ink-faint mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
-              <p className="text-gray-500 mb-4">Aucune recherche active</p>
+              <p className="text-ink-muted mb-4">Aucune recherche active</p>
               <Link
-                to={ROUTES.HOME}
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-ft-blue text-white text-sm font-medium hover:bg-ft-darkblue transition-colors"
+                to="/offres"
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-accent-gradient text-white text-sm font-medium shadow-glow-violet hover:opacity-90 transition"
               >
                 Lancer une recherche
               </Link>
