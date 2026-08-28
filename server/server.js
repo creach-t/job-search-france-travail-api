@@ -48,10 +48,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Variables pour stocker le token d'accès
-let accessToken = null;
-let tokenExpiry = null;
-
 // Configuration de l'API France Travail
 const FRANCE_TRAVAIL_API = {
   TOKEN_URL: process.env.FT_TOKEN_URL,
@@ -61,50 +57,53 @@ const FRANCE_TRAVAIL_API = {
   SCOPE: process.env.FT_SCOPE
 };
 
+// ── API « Marché du travail » (statistiques, tendances, tension) ──────────────
+// Configuration séparée : scope + base d'endpoints propres à ce produit.
+// FT_STATS_SCOPE : scope OAuth affiché sur la fiche du produit dans francetravail.io
+// FT_STATS_BASE  : base des endpoints (ex: https://api.francetravail.io/partenaire/<produit>/v1)
+const STATS_SCOPE = process.env.FT_STATS_SCOPE || null;
+const STATS_BASE = (process.env.FT_STATS_BASE || '').replace(/\/$/, '') || null;
+
 // API geo.api.gouv.fr pour les communes
 const GEO_API_URL = 'https://geo.api.gouv.fr/communes';
 
+// Cache de tokens par scope (l'app peut détenir plusieurs souscriptions)
+const tokenCache = {};
+
 /**
- * Obtient un token d'accès auprès de France Travail
+ * Obtient un token d'accès auprès de France Travail pour un scope donné.
+ * @param {string} scope - scope OAuth (défaut : offres d'emploi)
  * @returns {Promise<string>} - Token d'accès
  */
-async function getAccessToken() {
-  // Si le token existe et est encore valide
-  if (accessToken && tokenExpiry && tokenExpiry > Date.now()) {
-    return accessToken;
-  }
+async function getAccessToken(scope = FRANCE_TRAVAIL_API.SCOPE) {
+  const cached = tokenCache[scope];
+  if (cached && cached.expiry > Date.now()) return cached.token;
 
   try {
-    console.log("Tentative d'authentification avec:");
-    console.log("CLIENT_ID:", FRANCE_TRAVAIL_API.CLIENT_ID ? "Défini" : "Non défini");
-    console.log("CLIENT_SECRET:", FRANCE_TRAVAIL_API.CLIENT_SECRET ? "Défini" : "Non défini");
-    console.log("SCOPE:", FRANCE_TRAVAIL_API.SCOPE);
-    console.log("TOKEN_URL:", FRANCE_TRAVAIL_API.TOKEN_URL);
-    // Paramètres pour la demande OAuth 2.0
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
     params.append('client_id', FRANCE_TRAVAIL_API.CLIENT_ID);
     params.append('client_secret', FRANCE_TRAVAIL_API.CLIENT_SECRET);
-    params.append('scope', FRANCE_TRAVAIL_API.SCOPE);
+    params.append('scope', scope);
 
     const response = await axios.post(FRANCE_TRAVAIL_API.TOKEN_URL, params, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
 
-    // Stockage du token et calcul de l'expiration
-    accessToken = response.data.access_token;
-    // Expiration en secondes convertie en millisecondes
-    // On soustrait 60 secondes pour avoir une marge de sécurité
-    tokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000;
-
-    return accessToken;
+    // Marge de sécurité de 60 s avant expiration
+    tokenCache[scope] = {
+      token: response.data.access_token,
+      expiry: Date.now() + (response.data.expires_in - 60) * 1000,
+    };
+    return tokenCache[scope].token;
   } catch (error) {
-    console.error('Erreur lors de l\'authentification:', error.response?.data || error.message);
+    console.error('Erreur lors de l\'authentification (scope=' + scope + '):', error.response?.data || error.message);
     throw new Error('Impossible d\'obtenir un token d\'accès');
   }
 }
+
+// Invalide le token d'un scope (forcer un renouvellement, ex: sur 401)
+function invalidateToken(scope = FRANCE_TRAVAIL_API.SCOPE) { delete tokenCache[scope]; }
 
 /**
  * Middleware pour vérifier la présence du token dans la requête
@@ -150,7 +149,7 @@ async function makeApiCall(url, params, token, retryCount = 0) {
   } catch (error) {
     if (error.response?.status === 401 && retryCount === 0) {
       // Token invalide - on réessaie une fois avec un nouveau token
-      accessToken = null; // Force la régénération
+      invalidateToken(); // Force la régénération (scope offres par défaut)
       const newToken = await getAccessToken();
       return makeApiCall(url, params, newToken, retryCount + 1);
     }
@@ -253,6 +252,64 @@ app.get('/api/jobs/:id', authMiddleware, async (req, res) => {
     console.error(`Erreur lors de la récupération de l'offre ID ${req.params.id}:`, error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
       message: error.response?.data?.message || 'Erreur lors de la récupération de l\'offre'
+    });
+  }
+});
+
+// ============================================
+// Proxy API « Marché du travail » (stats / tendances / tension)
+// ============================================
+// Passe-plat configurable : le front fournit { endpoint, method, payload }.
+// Nécessite FT_STATS_SCOPE et FT_STATS_BASE dans server/.env.
+// Renvoie 501 explicite tant que ce n'est pas configuré (aucune donnée inventée).
+app.get('/api/marche-travail/config', (req, res) => {
+  res.json({ configured: Boolean(STATS_SCOPE && STATS_BASE), hasScope: Boolean(STATS_SCOPE), hasBase: Boolean(STATS_BASE) });
+});
+
+app.post('/api/marche-travail', async (req, res) => {
+  if (!STATS_SCOPE || !STATS_BASE) {
+    return res.status(501).json({
+      message: 'API Marché du travail non configurée',
+      detail: 'Renseignez FT_STATS_SCOPE et FT_STATS_BASE dans server/.env (voir la fiche du produit sur francetravail.io).',
+      hasScope: Boolean(STATS_SCOPE), hasBase: Boolean(STATS_BASE),
+    });
+  }
+
+  const { endpoint = '', method = 'POST', payload = {} } = req.body || {};
+  const safeEndpoint = String(endpoint).startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${STATS_BASE}${safeEndpoint}`;
+
+  const call = async (token) => axios({
+    url,
+    method,
+    data: method.toUpperCase() === 'GET' ? undefined : payload,
+    params: method.toUpperCase() === 'GET' ? payload : undefined,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+  });
+
+  try {
+    let token = await getAccessToken(STATS_SCOPE);
+    let response;
+    try {
+      response = await call(token);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        invalidateToken(STATS_SCOPE);
+        token = await getAccessToken(STATS_SCOPE);
+        response = await call(token);
+      } else {
+        throw err;
+      }
+    }
+    const contentRange = response.headers['content-range'] || '';
+    const totalMatch = contentRange.match(/\/(\d+)$/);
+    res.json({ data: response.data, total: totalMatch ? parseInt(totalMatch[1], 10) : null });
+  } catch (error) {
+    console.error('Erreur API Marché du travail:', error.response?.status, error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: 'Erreur API Marché du travail',
+      status: error.response?.status || 500,
+      detail: error.response?.data || error.message,
     });
   }
 });

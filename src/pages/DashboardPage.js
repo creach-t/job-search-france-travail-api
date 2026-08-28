@@ -4,6 +4,7 @@ import {
   BriefcaseIcon, BoltIcon, ClockIcon, Squares2X2Icon, ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { useMarketTrends } from '../hooks/useMarketTrends';
 import { Donut, Sparkline, MiniArea, RankBars } from '../components/charts';
 import { ACCENTS } from '../components/charts/palette';
 
@@ -44,6 +45,66 @@ const DetailLink = ({ to, children }) => (
     {children} <ArrowRightIcon className="h-3.5 w-3.5" />
   </Link>
 );
+
+// ── Tendance historique officielle (API Marché du travail) ───────────────────
+const MarketTrendCard = () => {
+  const mt = useMarketTrends({ codeTypeTerritoire: 'NAT', codeTerritoire: 'FR' });
+
+  // Non configurée → on le dit, pas de faux chiffres
+  if (!mt.configured) {
+    return (
+      <Card title="Tendance historique (source officielle)" subtitle="API Marché du travail — France Travail / DARES">
+        <div className="text-sm text-ink-muted">
+          <p>
+            Pour afficher l'<strong>évolution trimestrielle réelle</strong> des offres, la croissance et la tension par métier,
+            connectez l'API « Marché du travail ».
+          </p>
+          <p className="mt-2 text-xs text-ink-faint">
+            À renseigner dans <code className="text-accent">server/.env</code> :{' '}
+            <code>FT_STATS_SCOPE</code> (scope de la fiche produit) et <code>FT_STATS_BASE</code> (base des endpoints).
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const points = mt.trend.map((t) => ({ label: t.period, value: t.value }));
+
+  return (
+    <Card
+      title="Tendance historique (source officielle)"
+      subtitle={mt.source}
+      action={mt.growthPct != null && (
+        <span className={`text-xs font-bold ${mt.growthPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {mt.growthPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(mt.growthPct * 10) / 10)} % <span className="font-normal text-ink-faint">vs trim. préc.</span>
+        </span>
+      )}
+    >
+      {mt.isLoading ? (
+        <p className="text-sm text-ink-faint py-8 text-center">Chargement des séries…</p>
+      ) : mt.isError ? (
+        <div className="text-sm text-amber-300">
+          Source connectée, mais la requête n'a rien renvoyé d'exploitable.
+          <span className="block text-xs text-ink-faint mt-1">
+            Ajustez les endpoints dans <code>src/services/marcheTravail.js</code> selon le swagger du portail.
+            {mt.error?.message ? ` (${mt.error.message})` : ''}
+          </span>
+        </div>
+      ) : points.length ? (
+        <>
+          <MiniArea points={points} />
+          {mt.tensionValue != null && (
+            <p className="mt-2 text-xs text-ink-muted">
+              Indicateur de tension / difficulté de recrutement : <strong className="text-ink">{mt.tensionValue}</strong>
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-ink-faint py-8 text-center">Aucune série disponible pour ce périmètre.</p>
+      )}
+    </Card>
+  );
+};
 
 const DashboardPage = () => {
   // Périmètre national (aucun filtre) — comptes exacts par facette
@@ -116,6 +177,11 @@ const DashboardPage = () => {
             ? <Donut data={donutData} centerLabel="offres" centerValue={fmt(total)} />
             : <p className="text-sm text-ink-faint py-8 text-center">Chargement…</p>}
         </Card>
+      </div>
+
+      {/* Tendance historique officielle (API Marché du travail) */}
+      <div className="mb-4">
+        <MarketTrendCard />
       </div>
 
       {/* Classements : métiers + régions */}
