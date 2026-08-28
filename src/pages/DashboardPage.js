@@ -47,15 +47,6 @@ const DetailLink = ({ to, children }) => (
 );
 
 // ── Tendance officielle (API SODE — offres & demandes d'emploi) ──────────────
-const TensionMeter = ({ value }) => (
-  <div className="flex items-center gap-1" aria-label={`Tension ${value} sur 5`}>
-    {[1, 2, 3, 4, 5].map((i) => (
-      <span key={i} className="h-4 w-4 rounded"
-        style={{ background: i <= value ? (value >= 4 ? '#F43F5E' : value >= 3 ? '#F59E0B' : '#10B981') : 'rgb(var(--line)/0.2)' }} />
-    ))}
-  </div>
-);
-
 const MarketTrendCard = () => {
   const mt = useMarketTrends({ codeTypeTerritoire: 'NAT', codeTerritoire: 'FR' });
 
@@ -64,29 +55,27 @@ const MarketTrendCard = () => {
     return (
       <Card title="Tendance officielle (offres & demandes)" subtitle="API Statistiques France Travail / DARES">
         <div className="text-sm text-ink-muted">
-          <p>Pour l'<strong>évolution réelle</strong> des offres, la croissance et la tension de recrutement, connectez l'API SODE.</p>
+          <p>Pour l'<strong>évolution trimestrielle réelle</strong> des offres collectées, connectez l'API SODE.</p>
           <p className="mt-2 text-xs text-ink-faint">
             Dans <code className="text-accent">server/.env</code> :{' '}
-            <code>FT_STATS_SCOPE=offresetdemandesemploi api_stats-offres-demandes-emploiv1</code> et{' '}
-            <code>FT_STATS_BASE=https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1</code>.
+            <code>FT_STATS_SCOPE=offresetdemandesemploi api_stats-offres-demandes-emploiv1</code>.
           </p>
         </div>
       </Card>
     );
   }
 
-  const { evolution, statOffres, tension } = mt;
-  const headlineNombre = evolution?.nombre ?? statOffres?.nombre ?? null;
-  const periode = evolution?.periode || statOffres?.periode || '';
+  const { latest, growthPct, series } = mt;
+  const points = series.map((s) => ({ label: s.period, value: s.value }));
 
   return (
     <Card
-      title="Tendance officielle (offres & demandes)"
-      subtitle={`${mt.source}${periode ? ` · ${periode}` : ''}`}
-      action={evolution?.growthPct != null && (
-        <span className={`text-sm font-bold ${evolution.growthPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {evolution.growthPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(evolution.growthPct * 10) / 10)} %
-          <span className="font-normal text-ink-faint"> vs {evolution.periodeComparaison || 'période préc.'}</span>
+      title="Tendance officielle (offres collectées)"
+      subtitle={`${mt.source}${latest?.period ? ` · ${latest.period}` : ''}`}
+      action={growthPct != null && (
+        <span className={`text-sm font-bold ${growthPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {growthPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(growthPct * 10) / 10)} %
+          <span className="font-normal text-ink-faint"> vs trim. préc.</span>
         </span>
       )}
     >
@@ -95,37 +84,32 @@ const MarketTrendCard = () => {
       ) : mt.isError ? (
         <div className="text-sm text-amber-300">
           Source connectée, mais la requête n'a rien renvoyé d'exploitable.
-          <span className="block text-xs text-ink-faint mt-1">
-            Vérifie <code>FT_STATS_BASE</code> / les endpoints dans <code>src/services/marcheTravail.js</code>.
-            {mt.error?.message ? ` (${mt.error.message})` : ''}
+          <span className="block text-xs text-ink-faint mt-1 break-words">
+            {mt.error?.message ? mt.error.message : 'Vérifie les endpoints/payload dans src/services/marcheTravail.js.'}
           </span>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
-            <p className="text-xs text-ink-faint">Offres collectées</p>
-            <p className="text-2xl font-extrabold text-ink tabular-nums">{fmt(headlineNombre)}</p>
+        <>
+          {points.length >= 2 && <MiniArea points={points} />}
+          <div className="grid grid-cols-3 gap-4 mt-3">
+            <div>
+              <p className="text-xs text-ink-faint">Offres (trimestre)</p>
+              <p className="text-xl font-extrabold text-ink tabular-nums">{fmt(latest?.value)}</p>
+            </div>
+            {latest?.cdiPct != null && (
+              <div>
+                <p className="text-xs text-ink-faint">Part de CDI</p>
+                <p className="text-xl font-extrabold text-ink tabular-nums">{latest.cdiPct} %</p>
+              </div>
+            )}
+            {latest?.cadrePct != null && (
+              <div>
+                <p className="text-xs text-ink-faint">Part de cadres</p>
+                <p className="text-xl font-extrabold text-ink tabular-nums">{latest.cadrePct} %</p>
+              </div>
+            )}
           </div>
-          {statOffres?.cdiPct != null && (
-            <div>
-              <p className="text-xs text-ink-faint">Part de CDI</p>
-              <p className="text-2xl font-extrabold text-ink tabular-nums">{statOffres.cdiPct} %</p>
-            </div>
-          )}
-          {statOffres?.cadrePct != null && (
-            <div>
-              <p className="text-xs text-ink-faint">Part de cadres</p>
-              <p className="text-2xl font-extrabold text-ink tabular-nums">{statOffres.cadrePct} %</p>
-            </div>
-          )}
-          {tension?.value != null && (
-            <div>
-              <p className="text-xs text-ink-faint mb-1">Tension recrutement</p>
-              <TensionMeter value={tension.value} />
-              <p className="text-xs text-ink-muted mt-1">{tension.value}/5</p>
-            </div>
-          )}
-        </div>
+        </>
       )}
     </Card>
   );

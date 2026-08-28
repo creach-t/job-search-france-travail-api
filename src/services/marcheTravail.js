@@ -1,99 +1,83 @@
 /**
  * Client de l'API « Statistiques sur les offres et demandes d'emploi » (SODE).
  * Scope : offresetdemandesemploi api_stats-offres-demandes-emploiv1
- * Base (serveur, FT_STATS_BASE) : https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1
+ * Base  : https://api.francetravail.io/partenaire/stats-offres-demandes-emploi/v1
  *
- * Endpoints & schémas relevés sur l'implémentation officielle dataemploi.francetravail.fr
- * (même API sous-jacente). Passe par le proxy serveur /api/marche-travail.
+ * Endpoint & payload confirmés depuis le swagger officiel :
+ *   POST /indicateur/stat-offres
+ *   { codeTypeTerritoire, codeTerritoire, codeTypeActivite, codeActivite,
+ *     codeTypePeriode, codeTypeNomenclature }
  *
- * Données TRIMESTRIELLES/ANNUELLES, source France Travail / DARES. Aucun chiffre inventé :
- * si l'API n'est pas configurée ou répond mal, le hook renvoie configured=false / erreur.
+ * On demande la périodicité TRIMESTRE sans fixer de période → l'API renvoie la
+ * SÉRIE des trimestres, d'où l'évolution réelle (calculée sur la série). Passe par
+ * le proxy serveur /api/marche-travail. Aucun chiffre inventé.
  */
 import axios from 'axios';
 import { API } from '../utils/constants';
 
 const client = axios.create({ baseURL: API.BASE_URL, headers: { 'Content-Type': 'application/json' } });
 
-/** Le serveur a-t-il scope + base configurés ? */
 export const getMarketConfig = async () => {
   try {
     const { data } = await client.get('/marche-travail/config');
-    return data; // { configured, hasScope, hasBase }
+    return data;
   } catch {
     return { configured: false, hasScope: false, hasBase: false };
   }
 };
 
-/** Appel générique du proxy → { data, total }. */
 export const queryMarcheTravail = async (endpoint, payload = {}) => {
   const { data } = await client.post('/marche-travail', { endpoint, method: 'POST', payload });
   return data?.data ?? data;
 };
 
-// Endpoints SODE (relatifs à FT_STATS_BASE)
 export const MT_ENDPOINTS = {
-  statOffres: '/offres/stat-offres',
-  evolution: '/evolution/indicateur',
-  faciliteRecrutement: '/evolution/facilite-recrutement',
+  statOffres: '/indicateur/stat-offres',
 };
 
 /**
- * Construit la sélection (payload). Territoire : NAT/FR, REG/<code>, DEP/<code>.
- * Un métier ROME optionnel cible l'activité.
+ * Sélection (payload) confirmée par le swagger.
+ * Territoire : NAT/FR, REG/<code>, DEP/<code>. Activité : CUMUL (tout) ou ROME/<code>.
  */
 export const buildSelection = ({ codeTypeTerritoire = 'NAT', codeTerritoire = 'FR', codeRome } = {}) => ({
   codeTypeTerritoire,
   codeTerritoire,
-  ...(codeRome ? { codeTypeActivite: 'ROME', codeActivite: codeRome } : {}),
+  codeTypeActivite: codeRome ? 'ROME' : 'CUMUL',
+  codeActivite: codeRome || 'CUMUL',
+  codeTypePeriode: 'TRIMESTRE',
+  codeTypeNomenclature: 'ORIGINEOFF',
 });
 
-// ── Parseurs (schémas réels) ─────────────────────────────────────────────────
-
-/** stat-offres → volume principal + période + part CDI. */
-export const parseStatOffres = (resp) => {
-  const row = resp?.listeValeursParPeriode?.[0];
-  if (!row) return null;
-  const cdi = (row.listeValeurParCaract || []).find((c) => c.codeTypeCaract === 'TYPECTR' && c.codeCaract === 'CDI');
-  const cadre = (row.listeValeurParCaract || []).find((c) => c.codeTypeCaract === 'NIVQUAL' && c.codeCaract === 'CADRE');
-  return {
-    nombre: Number(row.valeurPrincipaleNombre) || null,
-    periode: row.libPeriode || '',
-    cdiPct: cdi ? Number(cdi.pourcentage) : null,
-    cadrePct: cadre ? Number(cadre.pourcentage) : null,
-  };
+const pctOf = (row, codeTypeCaract, codeCaract) => {
+  const c = (row.listeValeurParCaract || []).find((x) => x.codeTypeCaract === codeTypeCaract && x.codeCaract === codeCaract);
+  return c ? Number(c.pourcentage) : null;
 };
 
-/** evolution/indicateur → volume + évolution % vs période de comparaison. */
-export const parseEvolution = (resp) => {
-  const evo = resp?.evolutionTerritoire;
-  if (!evo) return null;
-  return {
-    nombre: Number(evo.nombre) || null,
-    growthPct: evo.evolutionPourcentage != null ? Number(evo.evolutionPourcentage) : null,
-    periode: resp?.periode?.libellePeriode || '',
-    periodeComparaison: resp?.periodeComparaison?.libellePeriode || '',
-  };
-};
+/**
+ * Parse la réponse stat-offres en série trimestrielle triée + dernier point.
+ * @returns {{ series: Array<{period,codePeriode,value,cdiPct,cadrePct}>, latest, growthPct }|null}
+ */
+export const parseStatSeries = (resp) => {
+  const rows = resp?.listeValeursParPeriode || (Array.isArray(resp) ? resp : []);
+  if (!rows.length) return null;
 
-/** facilite-recrutement → indice de tension (1..5) + facteurs. */
-export const parseTension = (resp) => {
-  const p = resp?.evolutionPersp2?.persp2;
-  if (!p) return null;
-  return {
-    value: p.valPrincPersp != null ? Number(p.valPrincPersp) : null,
-    label: p.libelleNomenclature || 'Tension',
-    facteurs: (resp.evolutionPersp2.listeSousPersp2 || []).map((s) => ({
-      label: s.libelleNomenclature,
-      value: Number(s.valPrincPersp),
-    })),
-  };
-};
+  const series = rows
+    .map((r) => ({
+      period: r.libPeriode || r.libPeriode || r.codePeriode || '',
+      codePeriode: r.codePeriode || '',
+      value: Number(r.valeurPrincipaleNombre) || 0,
+      cdiPct: pctOf(r, 'TYPECTR', 'CDI'),
+      cadrePct: pctOf(r, 'NIVQUAL', 'CADRE'),
+    }))
+    .filter((r) => r.value > 0 || r.period)
+    .sort((a, b) => String(a.codePeriode).localeCompare(String(b.codePeriode)));
 
-// Libellés lisibles de l'indice de tension (échelle France Travail 1→5)
-export const TENSION_LABELS = {
-  1: 'Très faible',
-  2: 'Faible',
-  3: 'Modérée',
-  4: 'Élevée',
-  5: 'Très élevée',
+  if (!series.length) return null;
+  const latest = series[series.length - 1];
+  let growthPct = null;
+  if (series.length >= 2) {
+    const prev = series[series.length - 2].value;
+    if (prev) growthPct = ((latest.value - prev) / prev) * 100;
+  }
+  return { series, latest, growthPct };
 };
