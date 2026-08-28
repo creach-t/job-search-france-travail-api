@@ -164,7 +164,9 @@ app.post('/api/jobs/search', authMiddleware, async (req, res) => {
     console.log('📥 [Backend] Body reçu du frontend:', JSON.stringify(req.body, null, 2));
 
     const { keywords, location, distance, experience,
-            contractType, qualification, tempsPlein, codeROME, salaryMin, range } = req.body;
+            contractType, qualification, tempsPlein, codeROME, salaryMin, range,
+            departement, region, grandDomaine, natureContrat, publieeDepuis,
+            minCreationDate, maxCreationDate, sort } = req.body;
 
     console.log('💰 [Backend] salaryMin extrait du body:', salaryMin, 'Type:', typeof salaryMin);
 
@@ -177,6 +179,15 @@ app.post('/api/jobs/search', authMiddleware, async (req, res) => {
       qualification,
       tempsPlein: tempsPlein,
       experience,
+      // Filtres avancés / facettes (dashboard + balayage segmenté)
+      departement,
+      region,
+      grandDomaine,
+      natureContrat,
+      publieeDepuis,
+      minCreationDate,
+      maxCreationDate,
+      sort,
       range: range || '0-49'
     };
 

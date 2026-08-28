@@ -11,13 +11,12 @@ import { MapPinIcon, XMarkIcon } from '@heroicons/react/20/solid';
 
 const Field = ({ label, children }) => (
   <div>
-    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">{label}</label>
+    <label className="block text-xs font-medium text-ink-faint uppercase tracking-wide mb-1.5">{label}</label>
     {children}
   </div>
 );
 
-const selectClass =
-  'w-full h-[38px] rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 focus:outline-none focus:border-ft-blue focus:ring-1 focus:ring-ft-blue/30 focus:bg-white transition-colors';
+const selectClass = 'glass-input w-full h-[38px] rounded-lg px-3 text-sm text-ink';
 
 const AnalyseControls = ({ onAnalyze, isFetching }) => {
   const [keywords, setKeywords] = useState('');
@@ -57,7 +56,7 @@ const AnalyseControls = ({ onAnalyze, isFetching }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+    <form onSubmit={handleSubmit} className="glass-card p-5 space-y-4">
       {/* Ligne 1 : métier + commune */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Métier (référentiel ROME) — recommandé">
@@ -121,13 +120,13 @@ const AnalyseControls = ({ onAnalyze, isFetching }) => {
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-1">
-        <p className="text-xs text-gray-400">
-          Jusqu'à <strong className="text-gray-500">1 150</strong> offres agrégées et recoupées côté client.
+        <p className="text-xs text-ink-faint">
+          Échantillon rapide (<strong className="text-ink-muted">1 150</strong> offres), puis balayage complet possible.
         </p>
         <button
           type="submit"
           disabled={isFetching}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ft-blue text-white text-sm font-semibold hover:bg-ft-darkblue transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent-gradient text-white text-sm font-semibold shadow-glow-violet hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isFetching ? (
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

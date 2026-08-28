@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchForm from '../components/SearchForm';
 import JobList from '../components/JobList';
 import Spinner from '../components/ui/Spinner';
@@ -13,9 +14,9 @@ import { useAppContext } from '../context/AppContext';
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
   const btnBase = "inline-flex items-center justify-center h-8 min-w-[32px] px-1.5 rounded-md text-sm font-medium transition-colors";
-  const btnActive = "bg-ft-blue text-white";
-  const btnNormal = "text-gray-600 hover:bg-gray-100";
-  const btnDisabled = "text-gray-300 cursor-not-allowed";
+  const btnActive = "bg-accent-gradient text-white shadow-glow-violet";
+  const btnNormal = "text-ink-muted hover:bg-[var(--glass-hover)]";
+  const btnDisabled = "text-ink-faint cursor-not-allowed";
 
   const getPages = () => {
     const pages = [];
@@ -37,7 +38,7 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
           <select
             value={pageSize}
             onChange={e => onPageSizeChange(Number(e.target.value))}
-            className="h-8 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:border-ft-blue focus:ring-1 focus:ring-ft-blue/30 appearance-none cursor-pointer transition-colors hover:bg-white"
+            className="glass-input h-8 pl-2.5 pr-7 rounded-lg text-sm font-medium text-ink appearance-none cursor-pointer"
           >
             {PAGE_SIZE_OPTIONS.map(size => (
               <option key={size} value={size}>{size}</option>
@@ -129,7 +130,9 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
 
 // ─── Page principale ────────────────────────────────────────────────────────
 const HomePage = () => {
-  const { isDevMode, homeSearchParams: searchParams, updateHomeSearchParams } = useAppContext();
+  const { homeSearchParams: searchParams, updateHomeSearchParams } = useAppContext();
+  const [urlParams] = useSearchParams();
+  const queryFromUrl = urlParams.get('q') || '';
   const [currentPage, setCurrentPage] = useState(() => {
     try { return parseInt(sessionStorage.getItem('lastSearchPage') || '0', 10); }
     catch { return 0; }
@@ -174,6 +177,14 @@ const HomePage = () => {
     setCurrentPage(0);
     updateHomeSearchParams(params);
   };
+
+  // Recherche déclenchée depuis la barre globale (?q=)
+  useEffect(() => {
+    if (queryFromUrl) {
+      handleSearch({ keywords: queryFromUrl.slice(0, 20), distance: '10', experience: '', contractType: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryFromUrl]);
 
   const handlePageChange = (page) => {
     sessionStorage.setItem('lastSearchPage', String(page));
@@ -308,35 +319,22 @@ const HomePage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        {isDevMode ? (
-          <>
-            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Offres pour développeurs
-            </h1>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-              Recherche filtrée sur les postes tech &amp; développement en France
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Trouvez votre prochain emploi
-            </h1>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-              Recherchez parmi les offres d'emploi disponibles en France
-            </p>
-          </>
-        )}
+    <div className="max-w-7xl mx-auto animate-fade-in">
+      <div className="mb-6 px-1">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-ink">
+          Rechercher une <span className="gradient-text">offre d'emploi</span>
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Tous secteurs, toute la France — données France Travail.
+        </p>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <SearchForm
-          key={isDevMode ? 'dev' : 'normal'}
+          key={queryFromUrl || 'default'}
           onSearch={handleSearch}
-          initialKeywords={isDevMode ? 'développeur' : ''}
-          initialContractType={isDevMode ? 'CDI' : ''}
+          initialKeywords={queryFromUrl}
+          initialContractType=""
         />
       </div>
 
@@ -357,8 +355,8 @@ const HomePage = () => {
               {/* En-tête résultats */}
               <div className="flex flex-wrap items-center gap-3 mb-1">
                 <div className="flex items-center gap-1.5">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    <span className="text-ft-blue font-bold">
+                  <h2 className="text-lg font-semibold text-ink">
+                    <span className="text-accent font-bold">
                       {display.totalCount !== null
                         ? display.totalCount.toLocaleString('fr-FR')
                         : display.jobs.length}

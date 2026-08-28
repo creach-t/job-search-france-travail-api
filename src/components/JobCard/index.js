@@ -36,37 +36,37 @@ const JobCard = ({ job, onRemove }) => {
   return (
     <div
       onClick={() => navigate(`/job/${job.id}`)}
-      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col overflow-hidden cursor-pointer"
+      className="glass-card glass-hover transition-all duration-200 flex flex-col overflow-hidden cursor-pointer hover:-translate-y-0.5"
     >
       {/* Barre de couleur en haut */}
-      <div className="h-1 bg-gradient-to-r from-ft-blue to-ft-darkblue shrink-0" />
+      <div className="h-1 bg-accent-gradient shrink-0" />
 
       <div className="p-5 flex flex-col flex-1">
 
         {/* En-tête : titre + bouton save/remove */}
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">
+            <h3 className="text-sm font-semibold text-ink line-clamp-2 leading-snug">
               {job.intitule}
             </h3>
 
             {/* Entreprise + lieu avec icônes */}
             <div className="mt-2 space-y-0.5">
               {job.entreprise?.nom && (
-                <div className="inline-flex items-center gap-1.5 text-xs text-gray-700 font-medium w-full min-w-0">
-                  <svg className="h-3 w-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="inline-flex items-center gap-1.5 text-xs text-ink-muted font-medium w-full min-w-0">
+                  <svg className="h-3 w-3 text-ink-faint shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                   <CompanyPopover
                     entreprise={job.entreprise}
                     trancheEffectif={job.trancheEffectifEtab}
-                    className="text-xs text-gray-700 font-medium truncate"
+                    className="text-xs text-ink-muted font-medium truncate"
                   />
                 </div>
               )}
               {job.lieuTravail?.libelle && (
-                <p className="inline-flex items-center gap-1.5 text-xs text-gray-500 truncate w-full">
-                  <svg className="h-3 w-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <p className="inline-flex items-center gap-1.5 text-xs text-ink-faint truncate w-full">
+                  <svg className="h-3 w-3 text-ink-faint shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -79,7 +79,7 @@ const JobCard = ({ job, onRemove }) => {
           {onRemove ? (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
-              className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              className="shrink-0 p-1.5 rounded-lg text-ink-faint hover:text-magenta hover:bg-[var(--glass-hover)] transition-colors"
               aria-label="Retirer des favoris"
               title="Retirer des favoris"
             >
@@ -101,7 +101,7 @@ const JobCard = ({ job, onRemove }) => {
         />
 
         {/* Description */}
-        <p className="mt-3 text-xs text-gray-500 line-clamp-2 leading-relaxed">
+        <p className="mt-3 text-xs text-ink-faint line-clamp-2 leading-relaxed">
           {job.description || 'Aucune description disponible'}
         </p>
 
@@ -112,17 +112,17 @@ const JobCard = ({ job, onRemove }) => {
           <div className="flex items-center justify-between gap-2">
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 border ${
               hasSalary
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : 'bg-gray-100 text-gray-400 border-gray-200'
+                ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                : 'text-ink-faint border-[rgb(var(--line)/0.2)] bg-[var(--glass-hover)]'
             }`}>
-              <svg className={`h-3 w-3 shrink-0 ${hasSalary ? 'text-green-500' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className={`h-3 w-3 shrink-0 ${hasSalary ? 'text-emerald-400' : 'text-ink-faint'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {salary}
             </span>
 
-            <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-1 shrink-0">
-              <svg className="h-3 w-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <span className="inline-flex items-center gap-1 text-xs text-ink-faint bg-[var(--glass-hover)] rounded-full px-2.5 py-1 shrink-0">
+              <svg className="h-3 w-3 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {relativeTime(job.dateCreation)}
