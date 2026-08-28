@@ -20,7 +20,8 @@ export const STORAGE_KEYS = {
 export const ROUTES = {
   HOME: '/',
   JOB_DETAILS: '/job',
-  SAVED_JOBS: '/saved'
+  SAVED_JOBS: '/saved',
+  MAP: '/map',
 };
 
 // API URLs - Configurées pour utiliser les variables d'environnement
