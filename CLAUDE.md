@@ -454,4 +454,4 @@ docker-compose down               # Arrêter
 ```
 
 - Frontend : `devjobs.creachtheo.fr`
-- Backend API : `api.devjobs.creachtheo.fr`
+- Backend API : `api-devjobs.creachtheo.fr`

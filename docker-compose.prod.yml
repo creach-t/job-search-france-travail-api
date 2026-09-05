@@ -17,8 +17,8 @@ services:
       start_period: 15s
     labels:
       - "traefik.enable=true"
-      # API → api.devjobs.creachtheo.fr
-      - "traefik.http.routers.api.rule=Host(`api.devjobs.creachtheo.fr`)"
+      # API → api-devjobs.creachtheo.fr (1er niveau → couvert par *.creachtheo.fr, proxifiable Cloudflare)
+      - "traefik.http.routers.api.rule=Host(`api-devjobs.creachtheo.fr`)"
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=myresolver"
       - "traefik.http.routers.api.service=app-service"
