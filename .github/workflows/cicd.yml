@@ -105,6 +105,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Vérifier les secrets de déploiement (fail-fast, évite le login navigateur bloquant)
+        run: |
+          missing=0
+          [ -n "${{ secrets.SSH_HOSTNAME }}" ]          || { echo "::error::Secret SSH_HOSTNAME manquant"; missing=1; }
+          [ -n "${{ secrets.CF_ACCESS_CLIENT_ID }}" ]     || { echo "::error::Secret CF_ACCESS_CLIENT_ID manquant"; missing=1; }
+          [ -n "${{ secrets.CF_ACCESS_CLIENT_SECRET }}" ] || { echo "::error::Secret CF_ACCESS_CLIENT_SECRET manquant"; missing=1; }
+          [ "$missing" -eq 0 ] || { echo "Ajoute les secrets manquants puis relance (Re-run jobs)."; exit 1; }
+
       - name: Set image tag
         id: set-tag
         run: echo "IMAGE_TAG=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
