@@ -22,6 +22,7 @@ export const ROUTES = {
   JOB_DETAILS: '/job',
   SAVED_JOBS: '/saved',
   MAP: '/map',
+  ANALYSE: '/analyse',
 };
 
 // API URLs - Configurées pour utiliser les variables d'environnement

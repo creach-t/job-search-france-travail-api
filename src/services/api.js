@@ -54,7 +54,15 @@ export const authenticate = async () => {
  * @returns {Object} - Paramètres formatés pour l'API
  */
 const buildSearchParams = (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE) => {
-  const { keywords, location, distance, experience, contractType, qualification, workingHours, codeROME, salaryMin } = params;
+  const {
+    keywords, location, distance, experience, contractType, qualification, workingHours,
+    codeROME, salaryMin,
+    // Filtres avancés / facettes (passthrough vers l'API France Travail)
+    departement, region, grandDomaine, natureContrat, publieeDepuis,
+    minCreationDate, maxCreationDate, sort,
+    // Permet de forcer un range précis (ex: comptage "0-1")
+    rangeOverride,
+  } = params;
 
   // Conversion de workingHours en tempsPlein (booléen attendu par l'API)
   let tempsPlein;
@@ -67,7 +75,7 @@ const buildSearchParams = (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE) => {
   // Calcul du range selon la page (ex: page=1, size=25 → "25-49")
   const start = page * validPageSize;
   const end = start + validPageSize - 1;
-  const range = `${start}-${Math.min(end, DEFAULTS.MAX_TOTAL - 1)}`;
+  const range = rangeOverride || `${start}-${Math.min(end, DEFAULTS.MAX_TOTAL - 1)}`;
 
   return {
     keywords: keywords || (codeROME ? undefined : DEFAULTS.DEFAULT_KEYWORDS),
@@ -79,6 +87,14 @@ const buildSearchParams = (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE) => {
     tempsPlein,
     codeROME: codeROME || undefined,
     salaryMin: salaryMin || undefined,
+    departement: departement || undefined,
+    region: region || undefined,
+    grandDomaine: grandDomaine || undefined,
+    natureContrat: natureContrat || undefined,
+    publieeDepuis: publieeDepuis || undefined,
+    minCreationDate: minCreationDate || undefined,
+    maxCreationDate: maxCreationDate || undefined,
+    sort: sort !== undefined ? sort : undefined,
     range,
   };
 };
@@ -110,6 +126,32 @@ export const searchJobs = async (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE
       }
     }
     throw new Error(error.response?.data?.message || 'Impossible de rechercher les offres d\'emploi.');
+  }
+};
+
+/**
+ * Compte les offres correspondant à des critères SANS les télécharger.
+ * Utilise range "0-1" et lit le total exact renvoyé par l'API (Content-Range).
+ * Coût réseau minime → base du dashboard « quota-aware ».
+ * @param {Object} params - critères (mêmes clés que searchJobs + departement/region/…)
+ * @returns {Promise<number>} - total exact (0 si inconnu)
+ */
+export const countJobs = async (params = {}) => {
+  const doCount = async () => {
+    const searchParams = buildSearchParams({ ...params, rangeOverride: '0-1' });
+    const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
+    return response.data?.total ?? 0;
+  };
+
+  try {
+    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) await authenticate();
+    return await doCount();
+  } catch (error) {
+    if (error.response?.status === 401) {
+      await authenticate();
+      return await doCount();
+    }
+    throw error;
   }
 };
 
@@ -175,6 +217,7 @@ export const searchMetiers = async (query = '') => {
 const apiService = {
   authenticate,
   searchJobs,
+  countJobs,
   getJobById,
   searchMetiers
 };

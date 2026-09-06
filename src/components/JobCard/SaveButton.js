@@ -6,8 +6,8 @@ const SaveButton = ({ isSaved, onSave }) => {
       onClick={onSave}
       className={`shrink-0 p-1.5 rounded-lg transition-colors ${
         isSaved
-          ? 'text-ft-blue bg-blue-50 hover:bg-blue-100'
-          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+          ? 'text-accent bg-accent/12 hover:bg-accent/20'
+          : 'text-ink-faint hover:text-ink hover:bg-[var(--glass-hover)]'
       }`}
       aria-label={isSaved ? "Retirer des favoris" : "Sauvegarder l'offre"}
       title={isSaved ? "Retirer des favoris" : "Sauvegarder l'offre"}

@@ -1,20 +1,27 @@
-import { Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import HomePage from './pages/HomePage';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import AppShell from './components/AppShell';
+import SearchPage from './pages/SearchPage';
 import JobDetailsPage from './pages/JobDetailsPage';
 import SavedJobsPage from './pages/SavedJobsPage';
-import MapPage from './pages/MapPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { ROUTES } from './utils/constants';
 
 function App() {
   return (
     <Routes>
-      <Route path={ROUTES.HOME} element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path={`${ROUTES.JOB_DETAILS}/:id`} element={<JobDetailsPage />} />
-        <Route path={ROUTES.SAVED_JOBS} element={<SavedJobsPage />} />
-        <Route path={ROUTES.MAP} element={<MapPage />} />
+      <Route path="/" element={<AppShell />}>
+        <Route index element={<SearchPage />} />
+        <Route path="job/:id" element={<JobDetailsPage />} />
+        <Route path="favoris" element={<SavedJobsPage />} />
+
+        {/* Redirections des anciennes URLs — tout est désormais centré sur la recherche */}
+        <Route path="offres" element={<Navigate to="/" replace />} />
+        <Route path="dashboard" element={<Navigate to="/" replace />} />
+        <Route path="tendances" element={<Navigate to="/?tab=analyse" replace />} />
+        <Route path="analyse" element={<Navigate to="/?tab=analyse" replace />} />
+        <Route path="carte" element={<Navigate to="/?tab=carte" replace />} />
+        <Route path="map" element={<Navigate to="/?tab=carte" replace />} />
+        <Route path="saved" element={<Navigate to="/favoris" replace />} />
+
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

@@ -73,7 +73,7 @@ const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="glass-card overflow-hidden">
 
       {error && (
         <div className="bg-red-50 border-b border-red-100 px-6 py-3 flex items-center gap-2 text-red-600 text-sm">
@@ -95,7 +95,7 @@ const SearchForm = ({ onSearch, initialKeywords = '', initialContractType = '' }
         </div>
 
         {/* Séparateur avec bouton filtres */}
-        <div className="border-t border-gray-100 px-6 py-3 bg-gray-50 flex items-center justify-between">
+        <div className="border-t border-[rgb(var(--line)/0.12)] px-6 py-3 bg-[var(--glass-hover)] flex items-center justify-between">
           <button
             type="button"
             onClick={() => setAdvancedSearch(!advancedSearch)}
