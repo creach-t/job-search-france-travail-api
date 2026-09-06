@@ -117,9 +117,15 @@ jobs:
         id: set-tag
         run: echo "IMAGE_TAG=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
-      - name: Install cloudflared
+      - name: Install cloudflared (pin 2026.5.1)
+        # ⚠️ 2026.6.0 a une régression : `access ssh` ignore le service token (flags,
+        # env ET -H) et force l'auth navigateur → SSH timeout en CI.
+        # cf. https://github.com/cloudflare/cloudflared/issues/1673 — on épingle la
+        # dernière version fonctionnelle tant qu'aucun correctif n'est publié.
+        env:
+          CLOUDFLARED_VERSION: "2026.5.1"
         run: |
-          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          curl -fsSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64.deb" -o cloudflared.deb
           sudo dpkg -i cloudflared.deb
           cloudflared --version
 
