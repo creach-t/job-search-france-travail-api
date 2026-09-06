@@ -8,17 +8,24 @@ Application web de recherche d'offres d'emploi utilisant l'API officielle de Fra
 
 ## Fonctionnalités
 
+### 🧭 Interface (recherche-centrée)
+Tout se pilote depuis une **barre de commande unique** en haut : recherche intelligente à chips (métiers ROME + villes en autocomplétion) et filtres avancés en popover — pas de sidebar, pas de formulaire séparé. Une fois la recherche lancée, trois **onglets** partagent la même recherche :
+- **Résultats** — liste paginée des offres.
+- **Analyse** — tableau de bord condensé (salaires, contrats, géographie, métiers/secteurs, rythme de publication) en cartes dépliables, + export CSV/JSON.
+- **Carte** — **carte SVG de France maison, sans tuiles ni API externe** : clusters d'offres à effet « goutte » (métaballes), zoom/pan fluides, taille & couleur = densité.
+
+Le tout en **glassmorphism** réaliste (thème clair/sombre).
+
 ### 🛠️ Mode DevJobs (par défaut)
 Interface spécialisée pour les développeurs :
 - **Filtres de stacks technologiques** — React, Vue, Angular, Next.js, TypeScript, Node.js, Python, Java, PHP, C#, Go, Rust, Flutter, Swift, Kotlin, Docker, AWS, Azure…
 - **Recherche multi-stack** — sélectionner plusieurs stacks lance des recherches en parallèle et combine les résultats dédupliqués automatiquement
 - Mot-clé "développeur" garanti si aucun critère n'est saisi
-- Navbar sombre
 
 ### 🔍 Mode Classique
 Recherche généraliste tous secteurs, sans filtres de stacks.
 
-> **Toggle Navbar :** le bouton affiche le mode *vers lequel on bascule* ("Classique" quand on est en DevJobs, "DevJobs" quand on est en Classique). Changer de mode réinitialise les résultats sans relancer de recherche automatique.
+> **Toggle de mode :** le bouton affiche le mode *vers lequel on bascule* ("Classique" quand on est en DevJobs, "DevJobs" quand on est en Classique). Changer de mode réinitialise les résultats sans relancer de recherche automatique.
 
 ### Fonctionnalités communes
 - **Recherche avancée** — mots-clés, localisation avec autocomplétion, distance, type de contrat, expérience, qualification, temps de travail, salaire minimum
@@ -102,35 +109,26 @@ npm run server     # Backend uniquement (avec hot reload)
 ```
 src/
 ├── components/
-│   ├── JobCard/
-│   │   ├── index.js          # Carte cliquable (→ fiche détail), useNavigate, stopPropagation sur ApplyButton
-│   │   ├── ApplyButton.js    # Bouton postuler (5 modes + modal Contact), prop fullWidth
-│   │   ├── JobTags.js        # Tags (contrat, expérience formatée...)
-│   │   └── SaveButton.js     # Favoris
-│   ├── SearchForm/
-│   │   ├── index.js                  # Formulaire complet
-│   │   ├── MainSearchFields.js       # Métier + localisation
-│   │   ├── AdvancedSearchFields.js   # Filtres avancés + stacks DevJobs + ROME
-│   │   ├── MetierAutocomplete.js     # Autocomplétion ROME (dans les filtres avancés)
-│   │   ├── SearchButton.js
-│   │   └── options.js                # Options selects + stackGroups
-│   └── ui/
-│       └── CompanyPopover.js  # Infobulle info entreprise (logo, description, taille, lien)
-├── hooks/
-│   ├── useJobs.js           # Pagination API standard
-│   ├── useAllJobs.js        # Chargement parallèle (mode filtre salaire)
-│   ├── useMultiStackJobs.js # Requêtes parallèles par stack (mode DevJobs)
-│   └── useGeolocation.js    # Géolocalisation
-├── context/
-│   └── AppContext.js        # Contexte global (favoris + isDevMode + homeSearchParams)
+│   ├── AppShell/
+│   │   ├── index.js         # Coquille = CommandBar + <main>
+│   │   └── CommandBar.js    # ★ Barre unique : recherche à chips, filtres popover, onglets, favoris, thème
+│   ├── search/              # ★ Onglets (partagent homeSearchParams)
+│   │   ├── ResultsTab.js    # Résultats + pagination + bascule 3 modes
+│   │   ├── AnalysisTab.js   # Analyse condensée (bento, cartes dépliables)
+│   │   ├── MapTab.js        # Wrapper données → carte
+│   │   └── map/FranceClusterMap.js  # ★ Carte SVG France (sans tuiles) + clusters à effet goutte
+│   ├── JobCard/             # index.js · ApplyButton.js (glass, 5 modes) · JobTags.js · SaveButton.js
+│   ├── analysis/charts.js · charts/   # Primitives de graphes
+│   ├── SearchForm/          # options.js + MetierAutocomplete.js réutilisés par CommandBar
+│   └── ui/CompanyPopover.js
+├── hooks/                   # useJobs · useAllJobs · useMultiStackJobs · useFullSweep · useGeolocation
+├── context/                 # AppContext.js (favoris + isDevMode + homeSearchParams) · ThemeContext.js
 ├── pages/
-│   ├── HomePage.js          # Bascule automatique entre les trois modes
-│   ├── JobDetailsPage.js    # Fiche offre complète (tous champs API)
-│   ├── SavedJobsPage.js     # Favoris
-│   └── NotFoundPage.js      # 404
-├── utils/
-│   ├── constants.js    # PAGE_SIZE_OPTIONS, DEFAULTS, MAX_TOTAL
-│   └── salaryUtils.js  # Conversion et normalisation des salaires
+│   ├── SearchPage.js        # ★ Accueil = recherche + onglets (état vide sinon)
+│   ├── JobDetailsPage.js · SavedJobsPage.js · NotFoundPage.js
+├── utils/                   # geoProjection.js (★ projection carte) · searchLabel.js · analytics.js · salaryUtils.js · departements.js · exportData.js · constants.js
+├── assets/france-departements.json   # ★ GeoJSON départements embarqué (~225 Ko)
+└── index.css               # Glassmorphism réaliste + styles carte
 server/
 ├── server.js           # API proxy Express + OAuth2 + Content-Range
 └── rome-codes.json     # Base locale des codes ROME
@@ -138,7 +136,7 @@ server/
 
 ### Modes de recherche
 
-L'application détecte automatiquement le mode à utiliser :
+L'onglet Résultats détecte automatiquement le mode à utiliser :
 
 ```
 Stacks sélectionnés  →  useMultiStackJobs  →  1 req/stack (150 max) → combine + déduplique
@@ -185,19 +183,15 @@ Disponible sur le nom de l'entreprise dans les cartes d'offres et dans la fiche 
 
 ## Déploiement
 
-### Docker (production)
+CI/CD automatique : un push sur `main` déclenche [`.github/workflows/cicd.yml`](.github/workflows/cicd.yml) → build de l'image, push sur **GHCR**, puis déploiement sur le VPS **via le tunnel Cloudflare** (`cloudflared access ssh` + service token ; port 22 non exposé publiquement). Front + API sont servis par **Express derrière Traefik** (`devjobs.creachtheo.fr` / `api-devjobs.creachtheo.fr`, TLS auto).
 
 ```bash
-docker-compose up -d              # Démarrer
-docker-compose logs -f backend    # Logs
-docker-compose down               # Arrêter
+# manuel, sur le VPS
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 ```
 
-### Build manuel
-
-```bash
-npm run build    # Génère build/ (servi par le backend Express en production)
-```
+> **Note infra** : `cloudflared` est épinglé à **2026.5.1** (régression service-token en 2026.6.0). Une règle firewall `DOCKER-USER` restreignant 80/443 à Cloudflare bloquait aussi l'egress des conteneurs → un `RETURN` pour `172.16.0.0/12` (persisté dans `/etc/iptables/rules.v4`) rétablit l'accès sortant du backend à France Travail.
 
 ---
 

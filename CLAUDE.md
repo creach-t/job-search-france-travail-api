@@ -10,7 +10,15 @@
 |--------|-------------|
 | Frontend | React 18, React Router 6, TailwindCSS 3, React Query v4, Headless UI, Heroicons, Axios |
 | Backend | Node.js, Express 4, Axios, dotenv |
-| Infrastructure | Docker, Nginx, Traefik (SSL auto) |
+| Infrastructure | Docker, Traefik (SSL auto), Cloudflare Tunnel |
+
+### Architecture actuelle (recherche-centrée)
+
+- **Accueil (`/`) = la recherche.** Une **barre de commande unique** (`components/AppShell/CommandBar.js`) pilote tout : recherche intelligente à chips (métiers ROME + villes en autocomplétion), filtres en popover, et les **onglets Résultats · Analyse · Carte** qui partagent la même recherche (`homeSearchParams`). Plus de sidebar desktop, plus de formulaire séparé (`SearchForm/index.js` remplacé — seuls `options.js` et `MetierAutocomplete.js` sont réutilisés).
+- **Carte de clusters = SVG maison, sans API/tuiles externes** : `components/search/map/FranceClusterMap.js` + `utils/geoProjection.js` (projection sans d3) + GeoJSON départements embarqué (`src/assets/france-departements.json`). Bulles verre à effet « goutte » (filtre métaballes `#goo`), zoom/pan throttlé (rAF), layers mémoïsés. **Leaflet retiré des imports.**
+- **Analyse condensée** en grille bento de cartes dépliables, graphes variés (donut, fourchette salariale, rythme hebdo) : `components/search/AnalysisTab.js`.
+- **Glassmorphism réaliste** (reflets spéculaires, grain, ombres multi-couches) : `src/index.css`.
+- ⚠️ **Supprimés** (fondus dans `SearchPage` + onglets) : `DashboardPage`, page Tendances autonome (`AnalysePage`), `MapPage` (Leaflet), `HomePage`, `Navbar`/`TopBar`, `AnalyseControls`.
 
 ## Architecture
 
@@ -18,52 +26,34 @@
 
 ```
 ├── src/                      # Code source frontend
-│   ├── components/           # Composants React réutilisables
-│   │   ├── JobCard/         # Composants de la carte d'offre
-│   │   │   ├── index.js     # Carte cliquable (useNavigate → /job/:id, stopPropagation sur ApplyButton/SaveButton)
-│   │   │   ├── ApplyButton.js # Bouton postuler (5 modes + modal Contact, prop fullWidth, masqué si aucune info)
-│   │   │   ├── JobTags.js   # Tags visuels (formatExperience intégré)
-│   │   │   └── SaveButton.js # Sauvegarde favoris
-│   │   ├── JobList/         # Liste des offres
-│   │   ├── SearchForm/      # Formulaire de recherche
-│   │   │   ├── index.js     # Conteneur principal du formulaire
-│   │   │   ├── MainSearchFields.js    # Champs principaux (mots-clés, lieu, distance)
-│   │   │   ├── AdvancedSearchFields.js # Filtres avancés (ROME + stacks + 5 selects)
-│   │   │   ├── MetierAutocomplete.js  # Autocomplete ROME (dans filtres avancés)
-│   │   │   ├── SearchButton.js
-│   │   │   └── options.js   # Options des selects + stackGroups DevJobs
-│   │   ├── Navbar/          # Navigation (avec toggle DevJobs/Classique)
-│   │   ├── Footer/          # Pied de page
-│   │   └── ui/              # Composants UI génériques
-│   │       ├── CompanyPopover.js  # Popover infos entreprise (logo, desc, site, effectif)
-│   │       ├── Spinner.js
-│   │       └── Error.js
-│   ├── pages/               # Pages principales
-│   │   ├── HomePage.js      # Page d'accueil — recherche + pagination + filtre salaire + multi-stack
-│   │   ├── JobDetailsPage.js # Détails complets d'une offre (toutes sections API)
-│   │   ├── SavedJobsPage.js # Offres sauvegardées (suppression individuelle)
-│   │   └── NotFoundPage.js  # Page 404
-│   ├── services/            # Services d'appel API
-│   │   ├── api.js          # Client API principal (range dynamique)
-│   │   ├── communeService.js # Service de recherche de communes
-│   │   └── geolocationService.js # Service de géolocalisation
-│   ├── hooks/               # Custom React hooks
-│   │   ├── useJobs.js      # Hook useSearchJobs (mode normal)
-│   │   ├── useAllJobs.js   # Hook useAllJobs (mode filtre salaire global)
-│   │   ├── useMultiStackJobs.js # Hook multi-stack (DevJobs — requêtes parallèles par techno)
-│   │   └── useGeolocation.js # Hook de géolocalisation
-│   ├── context/             # Context API React
-│   │   └── AppContext.js   # Contexte global (favoris + devMode + homeSearchParams)
-│   └── utils/               # Utilitaires et constantes
-│       ├── constants.js    # Constantes + PAGE_SIZE_OPTIONS + DEFAULTS
-│       └── salaryUtils.js  # Conversion et formatage des salaires
-├── server/                  # Code source backend
-│   ├── server.js           # Serveur Express principal
-│   ├── rome-codes.json     # Base de données codes ROME (métiers)
-│   └── routes/             # Routes API
-├── public/                  # Fichiers statiques
-├── nginx/                   # Configuration Nginx
-└── build/                   # Build de production (généré)
+│   ├── components/
+│   │   ├── AppShell/         # Coquille glassmorphism (pas de sidebar desktop)
+│   │   │   ├── index.js      # CommandBar + <main> (Outlet)
+│   │   │   ├── CommandBar.js # ★ Barre unique : recherche à chips (métiers+villes), filtres popover, onglets, favoris, thème
+│   │   │   ├── Brand.js · ThemeToggle.js · navItems.js · MobileNav.js · Sidebar.js
+│   │   ├── search/           # ★ Onglets de la recherche (partagent homeSearchParams)
+│   │   │   ├── ResultsTab.js   # Résultats + pagination + 3 modes (normal/salaire/multi-stack)
+│   │   │   ├── AnalysisTab.js  # Analyse condensée (bento, cartes dépliables, KPIs colorés, donut, fourchette, rythme hebdo)
+│   │   │   ├── MapTab.js       # Wrapper données → carte
+│   │   │   └── map/FranceClusterMap.js # ★ Carte SVG France (sans tuiles) + clusters à effet goutte
+│   │   ├── analysis/charts.js # Primitives analyse (BarList, CrossTab, SalaryHistogram, TrendChart, CoverageBanner)
+│   │   ├── charts/           # Donut, MiniArea, Sparkline, RankBars (+ palette)
+│   │   ├── JobCard/          # index.js (carte cliquable) · ApplyButton.js (glass, 5 modes) · JobTags.js · SaveButton.js
+│   │   ├── JobList/ · CommuneSearch.js
+│   │   ├── SearchForm/       # options.js + MetierAutocomplete.js réutilisés par CommandBar (le reste = legacy)
+│   │   └── ui/               # CompanyPopover.js · Spinner.js · Error.js
+│   ├── pages/
+│   │   ├── SearchPage.js     # ★ Accueil = recherche + onglets (état vide si aucune recherche)
+│   │   ├── JobDetailsPage.js · SavedJobsPage.js · NotFoundPage.js
+│   ├── services/            # api.js · communeService.js · geolocationService.js · marcheTravail.js · facets.js
+│   ├── hooks/               # useJobs · useAllJobs · useMultiStackJobs · useFullSweep · useGeolocation
+│   ├── context/             # AppContext.js (favoris + devMode + homeSearchParams) · ThemeContext.js
+│   ├── utils/               # geoProjection.js (★ projection carte) · searchLabel.js · analytics.js · salaryUtils.js · departements.js · exportData.js · constants.js
+│   ├── assets/              # ★ france-departements.json (GeoJSON départements embarqué, ~225 Ko)
+│   └── index.css            # Tokens de thème + glassmorphism réaliste + styles carte (.map-*)
+├── server/                  # server.js (Express) · rome-codes.json
+├── .github/workflows/cicd.yml # CI/CD : build → image GHCR → deploy via tunnel Cloudflare (cloudflared Access SSH)
+├── docker-compose.prod.yml · public/ · build/
 ```
 
 ### Flux de données
@@ -73,7 +63,7 @@
 3. **Backend → API Geo:** Récupération des informations géographiques des communes
 4. **Backend → Frontend:** Données formatées avec `total` réel inclus dans la réponse
 
-### Modes de chargement des données (HomePage)
+### Modes de chargement des données (ResultsTab)
 
 L'application bascule entre **trois modes** selon les paramètres de recherche actifs :
 
@@ -204,9 +194,9 @@ L'application propose deux modes d'utilisation :
 
 Le mode est persisté en `localStorage` (`devJobsMode`). Premier lancement → DevJobs par défaut.
 
-### Toggle dans la Navbar
+### Toggle DevJobs/Classique
 
-Le composant `ModeToggle` affiche **le mode de destination** (pas le mode courant) :
+Le toggle de mode (dans la barre / le menu) affiche **le mode de destination** (pas le mode courant) :
 
 | Mode actif | Label du bouton | Effet du clic |
 |------------|----------------|---------------|
@@ -253,7 +243,7 @@ const updateHomeSearchParams = (params) => {
 //            isDevMode, toggleDevMode, homeSearchParams, updateHomeSearchParams }
 ```
 
-**Pourquoi `homeSearchParams` est dans le contexte** : `HomePage` est démonté à chaque navigation (vers `/saved`, `/job/:id`, etc.). Stocker la recherche en état local la perdait à chaque remontage. Le contexte `AppProvider` (toujours monté) persiste ces paramètres sans ré-exécuter de recherche automatique.
+**Pourquoi `homeSearchParams` est dans le contexte** : `SearchPage` est démonté à chaque navigation (vers `/saved`, `/job/:id`, etc.). Stocker la recherche en état local la perdait à chaque remontage. Le contexte `AppProvider` (toujours monté) persiste ces paramètres sans ré-exécuter de recherche automatique.
 
 ### Multi-stack DevJobs (`useMultiStackJobs.js`)
 
@@ -287,7 +277,7 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 ### Persistance de la recherche
 
 - `homeSearchParams` stocké dans `AppContext` (jamais démonté) + `sessionStorage` pour rechargement de page
-- `currentPage` et `pageSize` dans état local de `HomePage`, initialisés depuis `sessionStorage`
+- `currentPage` et `pageSize` dans état local de `SearchPage`, initialisés depuis `sessionStorage`
 - Changement de mode (`isDevMode`) → reset de `homeSearchParams` via `useEffect` avec `prevIsDevMode` ref (évite le reset au montage initial)
 
 ### Pagination
@@ -414,7 +404,7 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];
 | Token expiré | OAuth2 valide 30 min | Cache serveur + renouvellement 60s avant expiration + retry sur 401 |
 | Paris renvoie 75056 | Code global vs arrondissements | Transformation auto vers 75101, suggestion d'arrondissements |
 | `distance: '0'` ignoré | `'0'` est falsy | Comparaison explicite `!== undefined && !== ''` dans `SearchForm/index.js`, `api.js`, `server.js` |
-| Recherche perdue à la navigation | `HomePage` démonté → état local perdu | `homeSearchParams` stocké dans `AppContext` (jamais démonté) |
+| Recherche perdue à la navigation | `SearchPage` démonté → état local perdu | `homeSearchParams` stocké dans `AppContext` (jamais démonté) |
 | Reset au montage du `useEffect([isDevMode])` | Effect s'exécute toujours au premier rendu | `prevIsDevMode = useRef(isDevMode)` — ne reset que sur un vrai changement |
 | `formations[].niveauFormationLibelle` undefined | Mauvais nom de champ | Le champ réel est `niveauLibelle` |
 | Bouton Contact présent mais inactif | Modal uniquement dans `isDetailed`, non rendu dans la carte | Modal rendu dans le chemin non-détaillé aussi (Fragment `<>`) |
@@ -442,16 +432,17 @@ npm run build        # Build de production
 - React Query : cache des requêtes (`staleTime: 5 min`)
 - `useQueries` : requêtes parallèles en mode filtre salaire et en mode multi-stack DevJobs
 - Multi-stack : jusqu'à N×150 offres récupérées en parallèle, dédupliquées en O(n) via `Set`
-- Nginx sert les fichiers statiques en production
+- En production, **Express sert le build React** (front + API sur le même conteneur, routé par Traefik) — plus de Nginx.
 
 ## Déploiement
 
+CI/CD : un push sur `main` déclenche `.github/workflows/cicd.yml` → build de l'image, push sur **GHCR**, puis déploiement sur le VPS **via le tunnel Cloudflare** (`cloudflared access ssh` + service token ; le port 22 n'est pas exposé publiquement). Le VPS tire l'image et recrée les conteneurs.
+
 ```bash
-npm run build                     # Build de production
-docker-compose up -d              # Démarrer
-docker-compose logs -f backend    # Voir les logs
-docker-compose down               # Arrêter
+# sur le VPS (fait par la CI)
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 ```
 
-- Frontend : `devjobs.creachtheo.fr`
-- Backend API : `api-devjobs.creachtheo.fr`
+- Front + API servis par Express derrière Traefik : `devjobs.creachtheo.fr`, `api-devjobs.creachtheo.fr` (TLS auto, DNS gris).
+- ⚠️ **Gotchas infra** (détails en mémoire projet) : `cloudflared` épinglé **2026.5.1** (régression service-token de la 2026.6.0) ; une règle `DOCKER-USER` restreignant 80/443 à Cloudflare bloquait aussi l'**egress** des conteneurs (backend → France Travail) → `RETURN` pour `172.16.0.0/12` ajouté en tête de `DOCKER-USER` et persisté dans `/etc/iptables/rules.v4`.
