@@ -48,6 +48,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ── Redirection navigateur du domaine API vers le frontend ────────────────────
+// Front et API sont servis par le même Express (routés par Traefik selon le Host).
+// Une personne qui ouvre https://api-devjobs.creachtheo.fr/ dans un navigateur doit
+// atterrir sur le site (devjobs), pas sur le build React servi via le domaine API.
+// On ne redirige QUE les navigations "humaines" : /api/* et /health restent servis.
+const API_PUBLIC_HOST = (process.env.API_PUBLIC_HOST || 'api-devjobs.creachtheo.fr').toLowerCase();
+const FRONTEND_PUBLIC_URL = (process.env.FRONTEND_PUBLIC_URL || 'https://devjobs.creachtheo.fr').replace(/\/$/, '');
+app.use((req, res, next) => {
+  const hostHeader = (req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0].trim().toLowerCase();
+  if (hostHeader === API_PUBLIC_HOST && !req.path.startsWith('/api') && req.path !== '/health') {
+    return res.redirect(302, FRONTEND_PUBLIC_URL + req.originalUrl);
+  }
+  next();
+});
+
 // Configuration de l'API France Travail
 const FRANCE_TRAVAIL_API = {
   TOKEN_URL: process.env.FT_TOKEN_URL,
