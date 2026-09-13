@@ -12,6 +12,7 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const { lookupCompany } = require('./insee');
 const ft = require('./providers/franceTravail');
+const adzuna = require('./providers/adzuna');
 const { debug } = require('./logger');
 
 const app = express();
@@ -221,6 +222,51 @@ app.post('/api/marche-travail', async (req, res) => {
       message: 'Erreur API Marché du travail',
       status: error.response?.status || 500,
       url,
+      detail: error.response?.data || error.message,
+    });
+  }
+});
+
+// ── Source d'offres additionnelle : Adzuna ────────────────────────────────────
+// Clés gratuites (ADZUNA_APP_ID / ADZUNA_APP_KEY). Renvoie 501 tant que non
+// configurée → le front masque simplement cette source.
+app.get('/api/adzuna/config', (req, res) => {
+  res.json({ configured: adzuna.isConfigured() });
+});
+
+app.post('/api/adzuna/search', async (req, res) => {
+  if (!adzuna.isConfigured()) {
+    return res.status(501).json({
+      message: 'API Adzuna non configurée',
+      detail: 'Renseignez ADZUNA_APP_ID et ADZUNA_APP_KEY dans server/.env (clés gratuites sur developer.adzuna.com).',
+    });
+  }
+  try {
+    const { what, where, page = 1, resultsPerPage = 50, salaryMin,
+            contractType, workingHours, distance, sortBy = 'date' } = req.body || {};
+
+    const query = {
+      results_per_page: Math.min(Number(resultsPerPage) || 50, 50),
+      ...(what ? { what } : {}),
+      ...(where ? { where } : {}),
+      ...(distance ? { distance } : {}),
+      ...(salaryMin ? { salary_min: salaryMin } : {}),
+      ...(sortBy ? { sort_by: sortBy } : {}),
+    };
+    // Contrat (approximation des libellés FR côté adapter)
+    if (contractType === 'CDI') query.permanent = 1;
+    else if (contractType === 'CDD') query.contract = 1;
+    // Temps de travail (aligné sur workingHours FT : 'true' = plein)
+    if (workingHours === 'true') query.full_time = 1;
+    else if (workingHours === 'false') query.part_time = 1;
+
+    const { results, total } = await adzuna.searchOffres({ page, ...query });
+    debug(`✅ Adzuna: ${results.length} offres (total: ${total ?? 'inconnu'})`);
+    res.json({ results, total });
+  } catch (error) {
+    console.error('Erreur recherche Adzuna:', error.response?.status, error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: 'Erreur recherche Adzuna',
       detail: error.response?.data || error.message,
     });
   }
