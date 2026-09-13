@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useGetJobById } from '../hooks/useJobs';
 import ApplyButton from '../components/JobCard/ApplyButton';
 import CompanyPopover from '../components/ui/CompanyPopover';
+import InseeCompanyInfo from '../components/ui/InseeCompanyInfo';
 import { formatSalaryToMonthly } from '../utils/salaryUtils';
 import { useAppContext } from '../context/AppContext';
 
@@ -139,8 +140,9 @@ const JobDetailsPage = () => {
   const hasLangues = job.langues?.length > 0;
   const hasPermis = job.permis?.length > 0;
   const hasProfileSection = hasCompetences || hasFormations || hasQualites || hasLangues || hasPermis || job.experienceCommentaire || job.outilsBureautiques;
-  // La section détaillée reste utile pour la description longue + lien site en pleine largeur
-  const hasEmployeurSection = job.entreprise?.description || job.entreprise?.url;
+  // La section détaillée reste utile pour la description longue + lien site en pleine largeur.
+  // On l'affiche aussi dès qu'un nom d'entreprise existe (pour l'enrichissement INSEE).
+  const hasEmployeurSection = job.entreprise?.description || job.entreprise?.url || job.entreprise?.nom;
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -174,6 +176,7 @@ const JobDetailsPage = () => {
                     <CompanyPopover
                       entreprise={job.entreprise}
                       trancheEffectif={job.trancheEffectifEtab}
+                      codePostal={job.lieuTravail?.codePostal}
                       className="text-sm text-ink-muted font-medium"
                     />
                   </div>
@@ -499,6 +502,17 @@ const JobDetailsPage = () => {
                 </a>
               )}
             </div>
+
+            {/* Enrichissement INSEE / SIRENE (raccord par nom + code postal) */}
+            {job.entreprise?.nom && (
+              <div className="mt-4 pt-4 border-t border-[rgb(var(--line)/0.1)]">
+                <InseeCompanyInfo
+                  nom={job.entreprise.nom}
+                  codePostal={job.lieuTravail?.codePostal}
+                  variant="full"
+                />
+              </div>
+            )}
           </div>
         )}
 

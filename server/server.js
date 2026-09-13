@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
+const { lookupCompany } = require('./insee');
 
 // Chargement des variables d'environnement du fichier à la racine en premier (si existe)
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -423,6 +424,43 @@ app.get('/api/communes/:code', async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la récupération de la commune:', error.response?.data || error.message);
     res.status(404).json({ message: 'Commune introuvable' });
+  }
+});
+
+// ============================================
+// Enrichissement entreprise (INSEE / SIRENE via recherche-entreprises.api.gouv.fr)
+// ============================================
+// France Travail ne fournit ni SIRET ni SIREN → raccord par nom + code postal.
+// Pas d'authentification requise (API publique) ; cache + throttling gérés dans insee.js.
+
+// Recherche unitaire (fiche employeur, popover)
+app.get('/api/entreprises/search', async (req, res) => {
+  try {
+    const { nom, codePostal, departement } = req.query;
+    const result = await lookupCompany({ nom, codePostal: codePostal || departement });
+    res.json(result);
+  } catch (error) {
+    console.error('Erreur enrichissement entreprise:', error.message);
+    res.status(500).json({ found: false, message: 'Erreur enrichissement entreprise' });
+  }
+});
+
+// Recherche en masse (onglet Analyse) — body: { companies: [{ nom, codePostal }] }
+app.post('/api/entreprises/bulk', async (req, res) => {
+  try {
+    const list = Array.isArray(req.body?.companies) ? req.body.companies : [];
+    // Garde-fou : limite le nombre d'entreprises enrichies par requête
+    const capped = list.slice(0, 40);
+    const results = await Promise.all(
+      capped.map(async ({ nom, codePostal }) => ({
+        nom,
+        result: await lookupCompany({ nom, codePostal }),
+      }))
+    );
+    res.json({ results });
+  } catch (error) {
+    console.error('Erreur enrichissement entreprises (bulk):', error.message);
+    res.status(500).json({ results: [] });
   }
 });
 

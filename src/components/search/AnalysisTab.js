@@ -10,7 +10,8 @@ import { BarList, CrossTab, SalaryHistogram } from '../analysis/charts';
 import { Donut } from '../charts';
 import { useAllJobs } from '../../hooks/useAllJobs';
 import { useFullSweep } from '../../hooks/useFullSweep';
-import { analyzeJobs } from '../../utils/analytics';
+import { useEntreprisesBulk } from '../../hooks/useEntreprise';
+import { analyzeJobs, aggregateInseeCompanies } from '../../utils/analytics';
 import { exportCsv, exportReport } from '../../utils/exportData';
 import { toBulkParams } from '../../utils/searchLabel';
 
@@ -234,6 +235,18 @@ const AnalysisTab = ({ searchParams, label }) => {
 
   const contractDonut = useMemo(() => (b?.contracts?.rows || []).slice(0, 5).map((r) => ({ label: r.label, value: r.count })), [b]);
 
+  // ── Enrichissement INSEE des principaux recruteurs ──────────────────────────
+  const topRecruiters = useMemo(() => b?.recruitersDetailed || [], [b]);
+  const countByName = useMemo(
+    () => Object.fromEntries(topRecruiters.map((r) => [r.nom, r.count])),
+    [topRecruiters]
+  );
+  const { data: inseeBulk, isFetching: inseeLoading } = useEntreprisesBulk(
+    useMemo(() => topRecruiters.map((r) => ({ nom: r.nom, codePostal: r.codePostal })), [topRecruiters]),
+    hasResults
+  );
+  const insee = useMemo(() => aggregateInseeCompanies(inseeBulk || [], countByName), [inseeBulk, countByName]);
+
   if (isLoading) {
     return (
       <div className="text-center py-16">
@@ -309,6 +322,50 @@ const AnalysisTab = ({ searchParams, label }) => {
           subtitle={`Âge médian ${report.freshness.medianDays ?? '—'} j · ${fmt(report.freshness.last24h)} en 24 h`}
           className="md:col-span-2 xl:col-span-1">
           <WeeklyTrend rows={report.trend?.rows} />
+        </Card>
+
+        <Card icon={BuildingOffice2Icon} tint="amber" title="Entreprises (INSEE)"
+          subtitle={insee.distinct > 0
+            ? `${insee.distinct} identifiée${insee.distinct > 1 ? 's' : ''} sur ${topRecruiters.length} recruteurs`
+            : 'Données publiques des principaux recruteurs'}
+          className="md:col-span-2 xl:col-span-1"
+          detail={insee.distinct > 0 ? (
+            <>
+              <div><p className="text-xs font-semibold text-ink-muted mb-2">Secteur d'activité (NAF)</p><BarList rows={insee.sections} /></div>
+              <div><p className="text-xs font-semibold text-ink-muted mb-2">Tranche d'effectif</p><BarList rows={insee.effectifs} /></div>
+              {insee.oldest?.dateCreation && (
+                <p className="text-xs text-ink-faint">
+                  Doyenne : <span className="text-ink-muted">{insee.oldest.nom}</span> — créée en {new Date(insee.oldest.dateCreation).getFullYear()}.
+                </p>
+              )}
+              <p className="text-[11px] text-ink-faint leading-relaxed">
+                Raccord par nom + code postal (France Travail ne fournit pas de SIRET). Correspondances peu fiables exclues.
+              </p>
+            </>
+          ) : null}>
+          {inseeLoading && insee.distinct === 0 ? (
+            <div className="flex items-center justify-center gap-2 text-xs text-ink-faint py-6">
+              <svg className="animate-spin h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              Identification des entreprises…
+            </div>
+          ) : insee.distinct === 0 ? (
+            <p className="text-xs text-ink-faint py-6 text-center">Aucune donnée publique fiable trouvée (recruteurs souvent anonymes).</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2.5 mb-3">
+                <div className="glass-card px-3 py-2">
+                  <p className="text-[11px] text-ink-faint">Âge moyen</p>
+                  <p className="text-lg font-extrabold text-amber-400 tabular-nums">{insee.avgAge != null ? `${insee.avgAge} ans` : '—'}</p>
+                </div>
+                <div className="glass-card px-3 py-2">
+                  <p className="text-[11px] text-ink-faint">Offres couvertes</p>
+                  <p className="text-lg font-extrabold text-amber-400 tabular-nums">{fmt(insee.totalOffers)}</p>
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-ink-muted mb-2">Catégorie d'entreprise</p>
+              <BarList rows={insee.categories} />
+            </>
+          )}
         </Card>
       </div>
 

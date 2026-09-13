@@ -60,6 +60,7 @@ const JobCard = ({ job, onRemove }) => {
                   <CompanyPopover
                     entreprise={job.entreprise}
                     trancheEffectif={job.trancheEffectifEtab}
+                    codePostal={job.lieuTravail?.codePostal}
                     className="text-xs text-ink-muted font-medium truncate"
                   />
                 </div>

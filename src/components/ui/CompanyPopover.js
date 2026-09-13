@@ -1,25 +1,59 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import InseeCompanyInfo from './InseeCompanyInfo';
 
 /**
  * Affiche le nom de l'entreprise.
- * Si des infos supplémentaires existent (logo, description, url, effectif),
- * un clic ouvre une infobulle avec ces détails.
+ * Un clic ouvre une infobulle : infos France Travail (logo, description, url,
+ * effectif) + enrichissement INSEE/SIRENE chargé paresseusement à l'ouverture.
+ *
+ * Le panneau est rendu dans un portal (position fixed) pour ne pas être clippé
+ * par la carte parente (overflow-hidden) et respecter la charte glass sombre.
  */
-const CompanyPopover = ({ entreprise, trancheEffectif, className = '' }) => {
+const PANEL_WIDTH = 288; // w-72
+
+const CompanyPopover = ({ entreprise, trancheEffectif, codePostal, className = '' }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
 
-  const hasExtra = entreprise?.logo || entreprise?.description || entreprise?.url || trancheEffectif;
+  // Le popover est proposé dès qu'un nom existe : l'enrichissement INSEE peut
+  // apporter des infos même sans données supplémentaires côté France Travail.
+  const hasExtra = entreprise?.logo || entreprise?.description || entreprise?.url || trancheEffectif || entreprise?.nom;
 
-  // Fermer au clic extérieur
+  const place = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.max(margin, Math.min(r.left, window.innerWidth - PANEL_WIDTH - margin));
+    const below = window.innerHeight - r.bottom;
+    const openUp = below < 300 && r.top > below;
+    setPos({
+      left,
+      top: openUp ? undefined : r.bottom + 6,
+      bottom: openUp ? window.innerHeight - r.top + 6 : undefined,
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    place();
+    const onDown = (e) => {
+      if (btnRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    const onDismiss = () => setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', onDismiss, true);
+    window.addEventListener('resize', onDismiss);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', onDismiss, true);
+      window.removeEventListener('resize', onDismiss);
+    };
+  }, [open, place]);
 
   if (!entreprise?.nom) return null;
 
@@ -29,46 +63,49 @@ const CompanyPopover = ({ entreprise, trancheEffectif, className = '' }) => {
   }
 
   return (
-    <div className="relative inline-block max-w-full" ref={ref}>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(o => !o); }}
-        className={`${className} inline-flex items-center gap-1 hover:text-ft-blue transition-colors cursor-pointer group/cpop`}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
+        className={`${className} inline-flex items-center gap-1 hover:text-accent transition-colors cursor-pointer group/cpop`}
       >
         <span className="truncate">{entreprise.nom}</span>
         <svg
-          className={`shrink-0 h-3 w-3 transition-colors ${open ? 'text-ft-blue' : 'text-gray-300 group-hover/cpop:text-ft-blue/60'}`}
+          className={`shrink-0 h-3 w-3 transition-colors ${open ? 'text-accent' : 'text-ink-faint group-hover/cpop:text-accent/60'}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {open && (
+      {open && pos && createPortal(
         <div
-          className="absolute z-40 left-0 top-full mt-1.5 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden"
+          ref={panelRef}
+          className="cmd-panel cmd-pop fixed z-[100] overflow-hidden"
+          style={{ left: pos.left, top: pos.top, bottom: pos.bottom, width: PANEL_WIDTH }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* En-tête logo + nom */}
-          <div className="flex items-center gap-3 p-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 p-4 border-b border-[rgb(var(--line)/0.12)]">
             {entreprise.logo ? (
               <img
                 src={entreprise.logo}
                 alt={entreprise.nom}
-                className="h-10 w-10 rounded-lg object-contain border border-gray-100 bg-gray-50 p-0.5 shrink-0"
+                className="h-10 w-10 rounded-lg object-contain border border-[rgb(var(--line)/0.15)] bg-white/90 p-0.5 shrink-0"
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
             ) : (
-              <div className="h-10 w-10 rounded-lg bg-ft-blue/10 flex items-center justify-center shrink-0">
-                <svg className="h-5 w-5 text-ft-blue/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="h-10 w-10 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+                <svg className="h-5 w-5 text-accent/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{entreprise.nom}</p>
+              <p className="text-sm font-semibold text-ink truncate">{entreprise.nom}</p>
               {trancheEffectif && (
-                <p className="text-xs text-gray-500 mt-0.5">{trancheEffectif}</p>
+                <p className="text-xs text-ink-faint mt-0.5">{trancheEffectif}</p>
               )}
             </div>
           </div>
@@ -76,7 +113,7 @@ const CompanyPopover = ({ entreprise, trancheEffectif, className = '' }) => {
           {/* Description */}
           {entreprise.description && (
             <div className="px-4 pt-3 pb-1">
-              <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">{entreprise.description}</p>
+              <p className="text-xs text-ink-muted leading-relaxed line-clamp-4">{entreprise.description}</p>
             </div>
           )}
 
@@ -87,7 +124,7 @@ const CompanyPopover = ({ entreprise, trancheEffectif, className = '' }) => {
                 href={entreprise.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-ft-blue hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -98,11 +135,17 @@ const CompanyPopover = ({ entreprise, trancheEffectif, className = '' }) => {
             </div>
           )}
 
-          {/* Pas de site mais il y a description : padding bas */}
-          {!entreprise.url && entreprise.description && <div className="pb-3" />}
-        </div>
+          {/* Enrichissement INSEE (chargé uniquement à l'ouverture du popover) */}
+          <InseeCompanyInfo
+            nom={entreprise.nom}
+            codePostal={codePostal}
+            variant="compact"
+            enabled={open}
+          />
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 

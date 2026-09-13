@@ -159,6 +159,8 @@ export const analyzeJobs = (jobs = [], apiTotal = null) => {
   const namedJobs = jobs.filter((j) => j.entreprise?.nom);
   const anonymous = analyzed - namedJobs.length;
   const recruiters = topBy(jobs, (j) => j.entreprise?.nom, { limit: 15 });
+  // Top recruteurs avec code postal représentatif → base de l'enrichissement INSEE
+  const recruitersDetailed = topRecruiters(jobs, 30);
 
   // ── Indicateurs binaires ──
   const alternanceCount = jobs.filter((j) => j.alternance === true).length;
@@ -178,6 +180,7 @@ export const analyzeJobs = (jobs = [], apiTotal = null) => {
     breakdowns: {
       contracts, natureContrat, experience, qualification, workingTime,
       sectors, romes, appellations, departements, communes, recruiters,
+      recruitersDetailed,
     },
     indicators: {
       alternanceCount,
@@ -196,6 +199,72 @@ export const analyzeJobs = (jobs = [], apiTotal = null) => {
       salaryByDepartement,
     },
   };
+};
+
+/**
+ * Top recruteurs avec un code postal représentatif (le plus fréquent parmi
+ * leurs offres) + nombre d'offres. Sert d'entrée à l'enrichissement INSEE.
+ */
+const topRecruiters = (jobs, limit = 30) => {
+  const map = new Map(); // nom -> { count, cps: Map<cp, n> }
+  jobs.forEach((j) => {
+    const nom = j.entreprise?.nom;
+    if (!nom) return;
+    if (!map.has(nom)) map.set(nom, { count: 0, cps: new Map() });
+    const e = map.get(nom);
+    e.count += 1;
+    const cp = j.lieuTravail?.codePostal;
+    if (cp) e.cps.set(cp, (e.cps.get(cp) || 0) + 1);
+  });
+  return [...map.entries()]
+    .map(([nom, e]) => ({
+      nom,
+      count: e.count,
+      codePostal: [...e.cps.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+};
+
+/**
+ * Agrège les données INSEE des recruteurs enrichis (pondéré par nombre d'offres).
+ * On écarte les correspondances de faible fiabilité pour ne pas fausser les stats.
+ * @param {Array<{nom:string, result:Object}>} bulkResults
+ * @param {Object<string, number>} countByName - nb d'offres par nom de recruteur
+ */
+export const aggregateInseeCompanies = (bulkResults = [], countByName = {}) => {
+  const matched = bulkResults
+    .map(({ nom, result }) => ({ nom, r: result, w: countByName[nom] || 1 }))
+    .filter((x) => x.r?.found && x.r.matchConfidence !== 'low');
+
+  const distinct = matched.length;
+  const totalOffers = matched.reduce((s, x) => s + x.w, 0) || 1;
+
+  const weightedTop = (keyFn) => {
+    const m = new Map();
+    matched.forEach((x) => {
+      const k = keyFn(x.r);
+      if (!k) return;
+      m.set(k, (m.get(k) || 0) + x.w);
+    });
+    return [...m.entries()]
+      .map(([label, count]) => ({ label, count, pct: (count / totalOffers) * 100 }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const CAT_LABELS = { PME: 'PME', ETI: 'ETI', GE: 'Grande entreprise' };
+  const categories = weightedTop((r) => (r.categorie ? CAT_LABELS[r.categorie] || r.categorie : null));
+  const sections = weightedTop((r) => r.activite?.sectionLibelle);
+  const effectifs = weightedTop((r) => r.effectif?.libelle);
+
+  const ages = matched.map((x) => x.r.ageAnnees).filter((a) => a != null);
+  const avgAge = ages.length ? Math.round(ages.reduce((s, a) => s + a, 0) / ages.length) : null;
+  const oldest = matched.reduce(
+    (acc, x) => (x.r.dateCreation && (!acc || x.r.dateCreation < acc.dateCreation) ? x.r : acc),
+    null
+  );
+
+  return { distinct, totalOffers, categories, sections, effectifs, avgAge, oldest };
 };
 
 /** Salaire mensuel médian par valeur d'une dimension (recoupement). */
