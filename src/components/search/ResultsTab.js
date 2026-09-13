@@ -2,11 +2,18 @@ import { useMemo } from 'react';
 import JobList from '../JobList';
 import Spinner from '../ui/Spinner';
 import Error from '../ui/Error';
+import SourceBadge from '../ui/SourceBadge';
 import { useSearchJobs } from '../../hooks/useJobs';
 import { useAllJobs } from '../../hooks/useAllJobs';
 import { useMultiStackJobs } from '../../hooks/useMultiStackJobs';
+import { useAdzunaJobs } from '../../hooks/useAdzunaJobs';
 import { convertToAnnualSalary } from '../../utils/salaryUtils';
 import { DEFAULTS, PAGE_SIZE_OPTIONS } from '../../utils/constants';
+import { SOURCES } from '../../domain/offer';
+
+// Clé de dé-duplication inter-sources (titre + entreprise normalisés)
+const dedupKey = (job) =>
+  `${(job.intitule || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${(job.entreprise?.nom || '').toLowerCase().trim()}`;
 
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
@@ -127,6 +134,13 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
   );
   const allJobsQuery = useAllJobs(hasSalaryFilter ? searchParams : null, hasSalaryFilter);
 
+  // Source additionnelle Adzuna (page 1). Se gate seule si non configurée.
+  const adzuna = useAdzunaJobs(searchParams, {
+    page: 1,
+    resultsPerPage: Math.min(pageSize, 50),
+    enabled: !!searchParams,
+  });
+
   const display = useMemo(() => {
     // ── Mode multi-stack ──
     if (hasMultiStack) {
@@ -207,6 +221,13 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
     total: display.totalCount, isFetching: display.isFetching,
   };
 
+  // Offres Adzuna dédupliquées contre la page France Travail affichée
+  const adzunaJobs = useMemo(() => {
+    if (!adzuna.configured || adzuna.adzunaJobs.length === 0) return [];
+    const seen = new Set((display.jobs || []).map(dedupKey));
+    return adzuna.adzunaJobs.filter((j) => !seen.has(dedupKey(j)));
+  }, [adzuna.configured, adzuna.adzunaJobs, display.jobs]);
+
   if (display.isLoading) {
     return (
       <Spinner text={
@@ -281,6 +302,28 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
       <ResultsBar {...barProps} />
       <JobList jobs={display.jobs} />
       <ResultsBar {...barProps} />
+
+      {/* Source additionnelle : Adzuna (s'affiche uniquement si configurée) */}
+      {adzuna.configured && adzunaJobs.length > 0 && (
+        <section className="mt-10 pt-6 border-t border-[rgb(var(--line)/0.12)]">
+          <div className="flex items-center gap-2 mb-4">
+            <SourceBadge source={SOURCES.ADZUNA} full />
+            <h3 className="text-base font-semibold text-ink">
+              Aussi sur Adzuna
+              <span className="text-ink-faint font-normal">
+                {' · '}{(adzuna.total ?? adzunaJobs.length).toLocaleString('fr-FR')} offre{(adzuna.total ?? adzunaJobs.length) !== 1 ? 's' : ''}
+              </span>
+            </h3>
+            {adzuna.isFetching && (
+              <svg className="animate-spin h-4 w-4 text-ink-faint" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            )}
+          </div>
+          <JobList jobs={adzunaJobs} />
+        </section>
+      )}
     </>
   );
 };

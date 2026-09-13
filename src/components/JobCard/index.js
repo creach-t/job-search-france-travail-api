@@ -25,6 +25,18 @@ const JobCard = ({ job, onRemove }) => {
   const { isJobSaved, saveJob, removeJob } = useAppContext();
   const isSaved = isJobSaved(job.id);
 
+  // Offre d'une source externe (ex. Adzuna) : pas de fiche détail interne →
+  // le clic ouvre la page d'origine. Les offres France Travail ouvrent /job/:id.
+  const isExternal = job.source && job.source !== SOURCES.FRANCE_TRAVAIL;
+  const externalUrl = job.contact?.urlPostulation;
+  const handleCardClick = () => {
+    if (isExternal) {
+      if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      navigate(`/job/${job.id}`);
+    }
+  };
+
   const handleSaveJob = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -40,7 +52,8 @@ const JobCard = ({ job, onRemove }) => {
 
   return (
     <div
-      onClick={() => navigate(`/job/${job.id}`)}
+      onClick={handleCardClick}
+      title={isExternal ? 'Ouvrir l’offre sur le site source' : undefined}
       className="glass-card glass-hover transition-all duration-200 flex flex-col overflow-hidden cursor-pointer hover:-translate-y-0.5"
     >
       {/* Barre de couleur en haut */}
