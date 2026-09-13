@@ -68,11 +68,21 @@ offres France Travail vers le **modèle `Offer` canonique** (`src/domain/offer.j
 travaillent sur `Offer[]`, quelle qu'en soit la provenance ; chaque offre porte un champ
 `source` (badge `SourceBadge`, visible dès qu'il existe ≥ 2 sources).
 
-**Pour brancher une nouvelle API d'offres** (Adzuna, APEC, EURES…) : écrire un adapter
+**Pour brancher une nouvelle API d'offres** (APEC, EURES…) : écrire un adapter
 `domain/adapters/<source>.js`, le déclarer dans `SOURCES`/`SOURCE_META` et le registry,
 puis ajouter le service/route correspondants. **Aucun composant ni l'analyse à modifier.**
 Guide détaillé : `src/domain/README.md`. Côté serveur, même logique via
-`server/providers/franceTravail.js` (auth OAuth2 + appels) — un provider par source.
+`server/providers/*.js` (auth + appels) — un provider par source.
+
+**Source implémentée en exemple : Adzuna** (facultative, clés gratuites
+`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`). Chaîne : `domain/adapters/adzuna.js` ·
+`server/providers/adzuna.js` + `/api/adzuna/*` · `services/adzunaService.js`
+(mapping pur dans `adzunaParams.js`) · `hooks/useAdzunaJobs.js`. Affichée dans
+l'onglet **Résultats** en section « Aussi sur Adzuna » (dé-dup inter-sources),
+uniquement si configurée. Les cartes d'offres externes ouvrent leur page d'origine
+(pas de fiche détail interne). ⚠️ L'onglet **Analyse** et la **Carte** restent
+France Travail uniquement pour l'instant (extension possible : fusionner les
+`Offer[]` multi-sources avant `analyzeJobs`).
 
 ### Flux de données
 

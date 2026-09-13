@@ -5,9 +5,15 @@ d'offres d'emploi. **Tout le front (cartes, détails, carte, analyse, export) ne
 consomme que le modèle `Offer`** décrit dans [`offer.js`](./offer.js) — jamais la
 forme brute d'une API.
 
-## Ajouter une nouvelle source d'offres (ex. Adzuna, APEC, EURES)
+> **Exemple réel déjà implémenté : Adzuna.** Voir `domain/adapters/adzuna.js`
+> (front), `server/providers/adzuna.js` + routes `/api/adzuna/*` (back),
+> `services/adzunaService.js` + `hooks/useAdzunaJobs.js`, et l'intégration dans
+> `components/search/ResultsTab.js` (section « Aussi sur Adzuna »). Il s'active
+> uniquement si `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` sont renseignées.
 
-1. **Écrire l'adaptateur** — `domain/adapters/adzuna.js` :
+## Ajouter une nouvelle source d'offres (ex. APEC, EURES…)
+
+1. **Écrire l'adaptateur** — `domain/adapters/<source>.js` (calqué sur `adzuna.js`) :
 
    ```js
    import { SOURCES } from '../offer';
