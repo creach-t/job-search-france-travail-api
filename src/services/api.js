@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { API, DEFAULTS, STORAGE_KEYS, PAGE_SIZE_OPTIONS } from '../utils/constants';
+import { SOURCES } from '../domain/offer';
+import { normalizeOffer, normalizeOffers } from '../domain/adapters';
 
 /**
  * Client API configuré pour communiquer avec le serveur intermédiaire
@@ -110,7 +112,9 @@ export const searchJobs = async (params, page = 0, pageSize = DEFAULTS.PAGE_SIZE
   const doSearch = async () => {
     const searchParams = buildSearchParams(params, page, pageSize);
     const response = await apiClient.post(API.ENDPOINTS.SEARCH_JOBS, searchParams);
-    return response.data;
+    // Normalisation vers le modèle Offer canonique (source France Travail).
+    const data = response.data || {};
+    return { ...data, resultats: normalizeOffers(data.resultats, SOURCES.FRANCE_TRAVAIL) };
   };
 
   try {
@@ -172,14 +176,14 @@ export const getJobById = async (id) => {
     }
     
     const response = await apiClient.get(`${API.ENDPOINTS.JOB_DETAILS}/${id}`);
-    return response.data;
+    return normalizeOffer(response.data, SOURCES.FRANCE_TRAVAIL);
   } catch (error) {
     // Si erreur 401 (Unauthorized), tenter de ré-authentifier et réessayer
     if (error.response && error.response.status === 401) {
       try {
         await authenticate();
         const response = await apiClient.get(`${API.ENDPOINTS.JOB_DETAILS}/${id}`);
-        return response.data;
+        return normalizeOffer(response.data, SOURCES.FRANCE_TRAVAIL);
       } catch (retryError) {
         console.error('Erreur lors de la tentative de ré-authentification:', retryError);
         throw new Error('Session expirée. Veuillez rafraîchir la page et réessayer.');
@@ -201,9 +205,10 @@ export const getJobById = async (id) => {
  */
 export const searchMetiers = async (query = '') => {
   try {
+    const base = `${API.BASE_URL}${API.ENDPOINTS.ROME_METIERS}`;
     const url = query.trim().length >= 2
-      ? `${API.BASE_URL}/rome/metiers?query=${encodeURIComponent(query)}`
-      : `${API.BASE_URL}/rome/metiers`;
+      ? `${base}?query=${encodeURIComponent(query)}`
+      : base;
 
     const response = await axios.get(url);
     return Array.isArray(response.data) ? response.data : [];

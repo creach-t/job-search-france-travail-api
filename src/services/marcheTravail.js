@@ -19,7 +19,7 @@ const client = axios.create({ baseURL: API.BASE_URL, headers: { 'Content-Type': 
 
 export const getMarketConfig = async () => {
   try {
-    const { data } = await client.get('/marche-travail/config');
+    const { data } = await client.get(API.ENDPOINTS.MARCHE_TRAVAIL_CONFIG);
     return data;
   } catch {
     return { configured: false, hasScope: false, hasBase: false };
@@ -27,7 +27,7 @@ export const getMarketConfig = async () => {
 };
 
 export const queryMarcheTravail = async (endpoint, payload = {}) => {
-  const { data } = await client.post('/marche-travail', { endpoint, method: 'POST', payload });
+  const { data } = await client.post(API.ENDPOINTS.MARCHE_TRAVAIL, { endpoint, method: 'POST', payload });
   return data?.data ?? data;
 };
 

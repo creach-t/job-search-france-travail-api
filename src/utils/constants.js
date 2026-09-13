@@ -16,16 +16,15 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth_token'
 };
 
-// Routes de l'application
+// Routes de l'application (tout est centré sur la recherche « / »)
 export const ROUTES = {
   HOME: '/',
   JOB_DETAILS: '/job',
-  SAVED_JOBS: '/saved',
-  MAP: '/map',
-  ANALYSE: '/analyse',
+  SAVED_JOBS: '/favoris',
 };
 
-// API URLs - Configurées pour utiliser les variables d'environnement
+// API URLs - Configurées pour utiliser les variables d'environnement.
+// Tous les endpoints du proxy backend sont déclarés ici (source unique de vérité).
 export const API = {
   // Utilise la variable d'environnement ou une valeur par défaut
   BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:4059/api',
@@ -33,7 +32,12 @@ export const API = {
     AUTH: '/auth',
     SEARCH_JOBS: '/jobs/search',
     JOB_DETAILS: '/jobs',
-    COMMUNES: '/communes'
+    COMMUNES: '/communes',
+    ROME_METIERS: '/rome/metiers',
+    ENTREPRISES_SEARCH: '/entreprises/search',
+    ENTREPRISES_BULK: '/entreprises/bulk',
+    MARCHE_TRAVAIL: '/marche-travail',
+    MARCHE_TRAVAIL_CONFIG: '/marche-travail/config',
   }
 };
 

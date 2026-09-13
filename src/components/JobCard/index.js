@@ -3,8 +3,10 @@ import JobTags from './JobTags';
 import SaveButton from './SaveButton';
 import ApplyButton from './ApplyButton';
 import CompanyPopover from '../ui/CompanyPopover';
+import SourceBadge from '../ui/SourceBadge';
 import { formatSalaryToMonthly } from '../../utils/salaryUtils';
 import { useAppContext } from '../../context/AppContext';
+import { KNOWN_SOURCE_COUNT, SOURCES } from '../../domain/offer';
 
 const relativeTime = (dateStr) => {
   if (!dateStr) return '';
@@ -32,6 +34,9 @@ const JobCard = ({ job, onRemove }) => {
 
   const salary = formatSalaryToMonthly(job.salaire);
   const hasSalary = salary !== 'Salaire non précisé';
+  // Provenance : affichée dès qu'il existe plusieurs sources, ou pour toute
+  // source autre que France Travail (multi-API). Une seule source → pas de bruit.
+  const showSource = job.source && (KNOWN_SOURCE_COUNT > 1 || job.source !== SOURCES.FRANCE_TRAVAIL);
 
   return (
     <div
@@ -122,11 +127,14 @@ const JobCard = ({ job, onRemove }) => {
               {salary}
             </span>
 
-            <span className="inline-flex items-center gap-1 text-xs text-ink-faint bg-[var(--glass-hover)] rounded-full px-2.5 py-1 shrink-0">
-              <svg className="h-3 w-3 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {relativeTime(job.dateCreation)}
+            <span className="inline-flex items-center gap-1.5 shrink-0">
+              {showSource && <SourceBadge source={job.source} />}
+              <span className="inline-flex items-center gap-1 text-xs text-ink-faint bg-[var(--glass-hover)] rounded-full px-2.5 py-1">
+                <svg className="h-3 w-3 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {relativeTime(job.dateCreation)}
+              </span>
             </span>
           </div>
 
