@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BarList, CrossTab, SalaryHistogram } from '../analysis/charts';
 import { Donut } from '../charts';
+import MarketTrendsCard from './MarketTrendsCard';
 import { useAllJobs } from '../../hooks/useAllJobs';
 import { useFullSweep } from '../../hooks/useFullSweep';
 import { useEntreprisesBulk } from '../../hooks/useEntreprise';
@@ -367,6 +368,9 @@ const AnalysisTab = ({ searchParams, label }) => {
             </>
           )}
         </Card>
+
+        {/* Tendances marché (API SODE) — ne s'affiche que si configurée */}
+        <MarketTrendsCard searchParams={searchParams} />
       </div>
 
       <p className="text-xs text-ink-faint leading-relaxed border-t border-[rgb(var(--line)/0.12)] pt-4">

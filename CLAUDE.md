@@ -30,38 +30,56 @@
 │   │   ├── AppShell/         # Coquille glassmorphism (pas de sidebar desktop)
 │   │   │   ├── index.js      # CommandBar + <main> (Outlet)
 │   │   │   ├── CommandBar.js # ★ Barre unique : recherche à chips (métiers+villes), filtres popover, onglets, favoris, thème
-│   │   │   ├── Brand.js · ThemeToggle.js · navItems.js · MobileNav.js · Sidebar.js
+│   │   │   ├── Brand.js · ThemeToggle.js  (Sidebar/MobileNav/navItems SUPPRIMÉS)
 │   │   ├── search/           # ★ Onglets de la recherche (partagent homeSearchParams)
 │   │   │   ├── ResultsTab.js   # Résultats + pagination + 3 modes (normal/salaire/multi-stack)
 │   │   │   ├── AnalysisTab.js  # Analyse condensée (bento, cartes dépliables, KPIs colorés, donut, fourchette, rythme hebdo)
+│   │   │   ├── MarketTrendsCard.js # ★ Tendances marché (API SODE) — s'auto-masque si non configurée
 │   │   │   ├── MapTab.js       # Wrapper données → carte
 │   │   │   └── map/FranceClusterMap.js # ★ Carte SVG France (sans tuiles) + clusters à effet goutte
 │   │   ├── analysis/charts.js # Primitives analyse (BarList, CrossTab, SalaryHistogram, TrendChart, CoverageBanner)
 │   │   ├── charts/           # Donut, MiniArea, Sparkline, RankBars (+ palette)
 │   │   ├── JobCard/          # index.js (carte cliquable) · ApplyButton.js (glass, 5 modes) · JobTags.js · SaveButton.js
-│   │   ├── JobList/ · CommuneSearch.js
-│   │   ├── SearchForm/       # options.js + MetierAutocomplete.js réutilisés par CommandBar (le reste = legacy)
-│   │   └── ui/               # CompanyPopover.js · Spinner.js · Error.js
+│   │   ├── JobList/          # index.js · NoResults.js
+│   │   ├── SearchForm/       # options.js UNIQUEMENT (réutilisé par CommandBar ; le reste du dossier a été supprimé)
+│   │   └── ui/               # CompanyPopover.js · InseeCompanyInfo.js · SourceBadge.js · Spinner.js · Error.js
+│   ├── domain/              # ★ Modèle Offer canonique + adapters (multi-sources) — voir domain/README.md
+│   │   ├── offer.js         # Contrat Offer, SOURCES, SOURCE_META (badge de provenance)
+│   │   └── adapters/        # index.js (registry: normalizeOffer/normalizeOffers) · franceTravail.js
 │   ├── pages/
 │   │   ├── SearchPage.js     # ★ Accueil = recherche + onglets (état vide si aucune recherche)
 │   │   ├── JobDetailsPage.js · SavedJobsPage.js · NotFoundPage.js
-│   ├── services/            # api.js · communeService.js · geolocationService.js · marcheTravail.js · facets.js
-│   ├── hooks/               # useJobs · useAllJobs · useMultiStackJobs · useFullSweep · useGeolocation
+│   ├── services/            # api.js (normalise via domain/adapters) · communeService.js · geolocationService.js · entrepriseService.js · marcheTravail.js
+│   ├── hooks/               # useJobs · useAllJobs · useMultiStackJobs · useFullSweep · useGeolocation · useEntreprise · useMarketTrends
 │   ├── context/             # AppContext.js (favoris + devMode + homeSearchParams) · ThemeContext.js
 │   ├── utils/               # geoProjection.js (★ projection carte) · searchLabel.js · analytics.js · salaryUtils.js · departements.js · exportData.js · constants.js
 │   ├── assets/              # ★ france-departements.json (GeoJSON départements embarqué, ~225 Ko)
 │   └── index.css            # Tokens de thème + glassmorphism réaliste + styles carte (.map-*)
-├── server/                  # server.js (Express) · rome-codes.json
+├── server/                  # server.js (Express) · providers/franceTravail.js (auth+appels FT) · insee.js · logger.js · rome-codes.json
 ├── .github/workflows/cicd.yml # CI/CD : build → image GHCR → deploy via tunnel Cloudflare (cloudflared Access SSH)
 ├── docker-compose.prod.yml · public/ · build/
 ```
 
+### Modularité multi-sources (★)
+
+Le front ne consomme **jamais** la forme brute d'une API : `services/api.js` normalise les
+offres France Travail vers le **modèle `Offer` canonique** (`src/domain/offer.js`) via le
+**registry d'adapters** (`src/domain/adapters/`). Toute l'UI et `utils/analytics.js`
+travaillent sur `Offer[]`, quelle qu'en soit la provenance ; chaque offre porte un champ
+`source` (badge `SourceBadge`, visible dès qu'il existe ≥ 2 sources).
+
+**Pour brancher une nouvelle API d'offres** (Adzuna, APEC, EURES…) : écrire un adapter
+`domain/adapters/<source>.js`, le déclarer dans `SOURCES`/`SOURCE_META` et le registry,
+puis ajouter le service/route correspondants. **Aucun composant ni l'analyse à modifier.**
+Guide détaillé : `src/domain/README.md`. Côté serveur, même logique via
+`server/providers/franceTravail.js` (auth OAuth2 + appels) — un provider par source.
+
 ### Flux de données
 
 1. **Frontend → Backend:** Les requêtes passent par le serveur Express (proxy) pour sécuriser les credentials
-2. **Backend → API France Travail:** Authentification OAuth2, récupération des données + extraction `Content-Range`
-3. **Backend → API Geo:** Récupération des informations géographiques des communes
-4. **Backend → Frontend:** Données formatées avec `total` réel inclus dans la réponse
+2. **Backend → API France Travail:** via `server/providers/franceTravail.js` (OAuth2 + `Content-Range`)
+3. **Backend → API Geo / INSEE-SIRENE:** communes (geo.api.gouv.fr) + enrichissement entreprise (`server/insee.js`)
+4. **Backend → Frontend:** `total` réel inclus ; **frontend normalise en `Offer`** via `domain/adapters`
 
 ### Modes de chargement des données (ResultsTab)
 
