@@ -55,6 +55,7 @@
 /** Sources d'offres connues. Ajouter une clé ici en branchant une nouvelle API. */
 export const SOURCES = {
   FRANCE_TRAVAIL: 'france-travail',
+  ADZUNA: 'adzuna',
 };
 
 /**
@@ -67,6 +68,12 @@ export const SOURCE_META = {
     label: 'France Travail',
     short: 'FT',
     color: 'blue',
+  },
+  [SOURCES.ADZUNA]: {
+    key: SOURCES.ADZUNA,
+    label: 'Adzuna',
+    short: 'AZ',
+    color: 'emerald',
   },
 };
 

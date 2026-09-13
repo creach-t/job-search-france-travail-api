@@ -11,12 +11,14 @@
  */
 import { SOURCES } from '../offer';
 import { fromFranceTravail, fromFranceTravailList } from './franceTravail';
+import { fromAdzuna, fromAdzunaList } from './adzuna';
 
 const listFromOne = (one) => (list) =>
   Array.isArray(list) ? list.map(one).filter(Boolean) : [];
 
 const ADAPTERS = {
   [SOURCES.FRANCE_TRAVAIL]: { one: fromFranceTravail, many: fromFranceTravailList },
+  [SOURCES.ADZUNA]: { one: fromAdzuna, many: fromAdzunaList },
 };
 
 /** Enregistre dynamiquement un adaptateur pour une nouvelle source. */
