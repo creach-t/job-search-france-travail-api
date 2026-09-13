@@ -38,6 +38,8 @@ export const API = {
     ENTREPRISES_BULK: '/entreprises/bulk',
     MARCHE_TRAVAIL: '/marche-travail',
     MARCHE_TRAVAIL_CONFIG: '/marche-travail/config',
+    ADZUNA_SEARCH: '/adzuna/search',
+    ADZUNA_CONFIG: '/adzuna/config',
   }
 };
 
