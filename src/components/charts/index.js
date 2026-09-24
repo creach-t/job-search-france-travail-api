@@ -103,7 +103,7 @@ export const Sparkline = ({ values = [], width = 120, height = 36, color = ACCEN
 };
 
 // ── MiniArea (série unique avec axe, ex. courbe de fraîcheur) ─────────────────
-export const MiniArea = ({ points = [], height = 150 }) => {
+export const MiniArea = ({ points = [], height = 150, maxLabels = 7 }) => {
   const gid = useId();
   if (points.length < 2) return <div className="text-sm text-ink-faint py-8 text-center">Données indisponibles</div>;
   const width = 480;
@@ -112,6 +112,10 @@ export const MiniArea = ({ points = [], height = 150 }) => {
   const xy = points.map((p, i) => [i * step, height - (p.value / max) * (height - 24) - 8]);
   const line = xy.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const area = `${line} L${width},${height} L0,${height} Z`;
+  // N'afficher qu'un sous-ensemble d'étiquettes (sinon elles se chevauchent) :
+  // premier, dernier, et un pas régulier au milieu.
+  const labelStep = Math.max(1, Math.ceil(points.length / maxLabels));
+  const showLabel = (i) => i === 0 || i === points.length - 1 || i % labelStep === 0;
 
   return (
     <div className="w-full overflow-x-auto">
@@ -135,9 +139,15 @@ export const MiniArea = ({ points = [], height = 150 }) => {
             <circle cx={p[0]} cy={p[1]} r="3.5" fill={ACCENTS.cyan} style={{ filter: `drop-shadow(0 0 5px ${ACCENTS.cyan})` }}>
               <title>{`${points[i].label} : ${fmt(points[i].value)}`}</title>
             </circle>
-            <text x={p[0]} y={height + 16} textAnchor="middle" className="fill-[rgb(var(--ink-faint))]" fontSize="11">
-              {points[i].label}
-            </text>
+            {showLabel(i) && (
+              <text
+                x={p[0]} y={height + 16}
+                textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
+                className="fill-[rgb(var(--ink-faint))]" fontSize="11"
+              >
+                {points[i].label}
+              </text>
+            )}
           </g>
         ))}
       </svg>

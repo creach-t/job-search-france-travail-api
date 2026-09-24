@@ -23,8 +23,13 @@ const MarketTrendsCard = ({ searchParams }) => {
 
   const { configured, isLoading, isError, series, latest, growthPct, source } = useMarketTrends(scope);
 
+  // Étiquette courte « T1 2021 » (depuis codePeriode « 2021T1 ») pour un axe lisible
+  const shortPeriod = (s) => {
+    const m = /^(\d{4})T(\d)$/.exec(s.codePeriode || '');
+    return m ? `T${m[2]} ${m[1]}` : (s.period || '');
+  };
   const points = useMemo(
-    () => (series || []).map((s) => ({ label: s.period, value: s.value })),
+    () => (series || []).map((s) => ({ label: shortPeriod(s), value: s.value })),
     [series]
   );
 
