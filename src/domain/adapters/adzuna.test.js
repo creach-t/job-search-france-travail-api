@@ -44,6 +44,24 @@ describe('adapter Adzuna', () => {
     expect(formatSalaryToMonthly(o.salaire).replace(/\s/g, ' ')).toBe('3 750 € / mois brut');
   });
 
+  test('salaire mensuel détecté sous le seuil (2500 → mensuel, pas annuel)', () => {
+    const o = fromAdzuna({ id: '9', salary_min: 2500 });
+    expect(o.salaire.libelle).toMatch(/^Mensuel de 2500/);
+    expect(formatSalaryToMonthly(o.salaire).replace(/\s/g, ' ')).toBe('2 500 € / mois brut');
+    expect(convertToAnnualSalary(o.salaire)).toBe(30000);
+  });
+
+  test('salaire annuel détecté au-dessus du seuil (45000 → annuel)', () => {
+    const o = fromAdzuna({ id: '10', salary_min: 45000 });
+    expect(o.salaire.libelle).toMatch(/^Annuel de 45000/);
+    expect(convertToAnnualSalary(o.salaire)).toBe(45000);
+  });
+
+  test('montant aberrant (quelques euros) ignoré', () => {
+    expect(fromAdzuna({ id: '11', salary_min: 48 }).salaire).toBeUndefined();
+    expect(fromAdzuna({ id: '12', salary_min: 4 }).salaire).toBeUndefined();
+  });
+
   test('gère les champs manquants sans planter', () => {
     const o = fromAdzuna({ id: '1' });
     expect(o.id).toBe('adzuna:1');

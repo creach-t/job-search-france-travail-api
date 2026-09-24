@@ -17,19 +17,33 @@ const CONTRACT_LABEL = { permanent: 'CDI', contract: 'CDD' };
 // contract_time → durée de travail (aligné sur dureeTravailLibelleConverti FT)
 const WORKTIME_LABEL = { full_time: 'Temps plein', part_time: 'Temps partiel' };
 
-/** Construit un libellé de salaire parsable par salaryUtils (montants annuels). */
+// Seuil mensuel/annuel : Adzuna FR ne précise pas la périodicité, et mélange des
+// montants mensuels (~1 500–10 000 €) et annuels (~18 000 €+). Au-delà du seuil on
+// considère un montant annuel, en-deçà un montant mensuel (aligné sur salaryUtils).
+const ANNUAL_THRESHOLD = 10000;
+// Plancher anti-bruit sur l'équivalent mensuel (Adzuna renvoie parfois quelques euros).
+const MIN_MONTHLY = 300;
+
+/**
+ * Construit un libellé de salaire parsable par salaryUtils, en déduisant la
+ * périodicité (Mensuel/Annuel) du montant — Adzuna ne la fournit pas.
+ */
 const buildSalaire = (raw) => {
   const min = Number(raw.salary_min) || null;
   const max = Number(raw.salary_max) || null;
-  if (!min && !max) return undefined;
   const lo = min || max;
-  // Adzuna renvoie parfois des montants aberrants (quelques euros) : on écarte
-  // les valeurs implausibles pour un salaire ANNUEL afin de ne pas fausser l'analyse.
-  if (lo < 1000) return undefined;
-  const hi = max && max !== min ? max : null;
+  if (!lo || lo <= 0) return undefined;
+
+  const isAnnual = lo >= ANNUAL_THRESHOLD;
+  const monthlyEquiv = isAnnual ? lo / 12 : lo;
+  if (monthlyEquiv < MIN_MONTHLY) return undefined; // montant aberrant → ignoré
+
+  const periode = isAnnual ? 'Annuel' : 'Mensuel';
+  const hi = max && max !== min && max > 0 ? max : null;
   const libelle = hi
-    ? `Annuel de ${Math.round(lo)} Euros à ${Math.round(hi)} Euros`
-    : `Annuel de ${Math.round(lo)} Euros`;
+    ? `${periode} de ${Math.round(lo)} Euros à ${Math.round(hi)} Euros`
+    : `${periode} de ${Math.round(lo)} Euros`;
+
   return {
     libelle,
     commentaire: raw.salary_is_predicted === '1' || raw.salary_is_predicted === 1
