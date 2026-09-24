@@ -23,6 +23,9 @@ const buildSalaire = (raw) => {
   const max = Number(raw.salary_max) || null;
   if (!min && !max) return undefined;
   const lo = min || max;
+  // Adzuna renvoie parfois des montants aberrants (quelques euros) : on écarte
+  // les valeurs implausibles pour un salaire ANNUEL afin de ne pas fausser l'analyse.
+  if (lo < 1000) return undefined;
   const hi = max && max !== min ? max : null;
   const libelle = hi
     ? `Annuel de ${Math.round(lo)} Euros à ${Math.round(hi)} Euros`

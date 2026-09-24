@@ -233,7 +233,8 @@ const AnalysisTab = ({ searchParams, label }) => {
   // Flux unifié FT + Adzuna (dé-dupliqué) → l'analyse porte sur les deux sources
   const effectiveJobs = useMemo(() => mergeOffers([ftJobs, adz.adzunaJobs]), [ftJobs, adz.adzunaJobs]);
   const ftTotal = usingSweep && sweep.total != null ? sweep.total : total;
-  const effectiveTotal = (ftTotal || 0) + (adz.total || 0);
+  // Total combiné, jamais inférieur au nombre réellement analysé (cohérence UI)
+  const effectiveTotal = Math.max((ftTotal || 0) + (adz.total || 0), effectiveJobs.length);
   const startSweep = () => { sweptKeyRef.current = paramsKey; sweep.start(bulkParams); };
 
   const report = useMemo(() => analyzeJobs(effectiveJobs, effectiveTotal), [effectiveJobs, effectiveTotal]);
