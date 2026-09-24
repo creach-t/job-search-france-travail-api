@@ -77,12 +77,21 @@ Guide détaillé : `src/domain/README.md`. Côté serveur, même logique via
 **Source implémentée en exemple : Adzuna** (facultative, clés gratuites
 `ADZUNA_APP_ID`/`ADZUNA_APP_KEY`). Chaîne : `domain/adapters/adzuna.js` ·
 `server/providers/adzuna.js` + `/api/adzuna/*` · `services/adzunaService.js`
-(mapping pur dans `adzunaParams.js`) · `hooks/useAdzunaJobs.js`. Affichée dans
-l'onglet **Résultats** en section « Aussi sur Adzuna » (dé-dup inter-sources),
-uniquement si configurée. Les cartes d'offres externes ouvrent leur page d'origine
-(pas de fiche détail interne). ⚠️ L'onglet **Analyse** et la **Carte** restent
-France Travail uniquement pour l'instant (extension possible : fusionner les
-`Offer[]` multi-sources avant `analyzeJobs`).
+(mapping pur dans `adzunaParams.js`) · `hooks/useAdzunaJobs.js`.
+
+**Flux unifié (★)** — FT et Adzuna sont **fusionnés partout**, pas en section à part :
+`hooks/useUnifiedJobs.js` charge le corpus FT (via `useAllJobs` ou `useMultiStackJobs`)
++ Adzuna (multi-pages), puis `domain/mergeOffers.js` **dé-duplique inter-sources**
+(clé intitulé+entreprise, FT prioritaire) et **trie par date**. Les 3 onglets
+consomment ce flux :
+- **Résultats** : liste unique, pagination locale, **puces de filtre par source**
+  (Toutes / France Travail / Adzuna), badge `SourceBadge` par carte.
+- **Analyse** : `analyzeJobs` porte sur le combiné FT+Adzuna (dé-dupliqué).
+- **Carte** : clusters des offres des deux sources (Adzuna a lat/long).
+Les cartes d'offres externes (Adzuna) ouvrent leur page d'origine (pas de fiche
+détail interne). Si Adzuna n'est pas configurée, le flux reste 100 % France Travail.
+⚠️ En mode « normal » (hors multi-stack), Résultats charge désormais le corpus FT
+complet (`useAllJobs`, jusqu'à 1 150) pour permettre tri + analyse combinés.
 
 ### Flux de données
 
@@ -91,23 +100,26 @@ France Travail uniquement pour l'instant (extension possible : fusionner les
 3. **Backend → API Geo / INSEE-SIRENE:** communes (geo.api.gouv.fr) + enrichissement entreprise (`server/insee.js`)
 4. **Backend → Frontend:** `total` réel inclus ; **frontend normalise en `Offer`** via `domain/adapters`
 
-### Modes de chargement des données (ResultsTab)
+### Chargement des données (flux unifié — `useUnifiedJobs`)
 
-L'application bascule entre **trois modes** selon les paramètres de recherche actifs :
-
-| Condition | Hook utilisé | Comportement |
-|-----------|-------------|--------------|
-| `hasMultiStack = true` (≥1 stack DevJobs) | `useMultiStackJobs` | 1 requête API par stack (150 résultats max), combinaison + déduplication côté client, pagination locale |
-| `hasSalaryFilter = true` (filtre salaire, sans multi-stack) | `useAllJobs` | 8 requêtes parallèles → filtre côté client → pagination locale |
-| Sinon (mode normal) | `useSearchJobs` | Pagination API directe, une page à la fois |
+`ResultsTab`, `AnalysisTab` et `MapTab` s'appuient sur **`hooks/useUnifiedJobs.js`**, qui
+assemble un **corpus unique FT + Adzuna** puis le fusionne (`domain/mergeOffers.js`) :
 
 ```
-hasMultiStack = true   →  useMultiStackJobs  →  N requêtes /stack → combine → pagination locale
-hasSalaryFilter = true →  useAllJobs         →  8 requêtes parallèles → filtre → pagination locale
-sinon                  →  useSearchJobs      →  pagination API (range 0-49, 50-99, ...)
+FT : multi-stack ? useMultiStackJobs (N req/stack)   ┐
+     sinon         useAllJobs (jusqu'à 8 req, ≤1150)  ├─ mergeOffers (dé-dup + tri date) → flux unifié
+Adzuna : useAdzunaJobs (multi-pages, ~150 offres)     ┘   → filtre salaire client → pagination locale
 ```
 
-> **Priorité :** multi-stack > filtre salaire > mode normal. Les deux premiers modes ne sont pas cumulables.
+- **Multi-stack** (≥1 stack DevJobs) : 1 requête FT par stack (150 max), combinées + dédupliquées.
+- **Sinon** : corpus FT complet via `useAllJobs` (jusqu'à 1 150).
+- **Adzuna** : quelques pages, fusionnées, dé-dupliquées inter-sources (FT prioritaire).
+- **Filtre salaire** : appliqué côté client sur le flux fusionné (`convertToAnnualSalary`).
+- Pagination **locale** sur le flux ; filtre par source dans l'UI Résultats.
+
+> Le mode « pagination API page-par-page » (`useSearchJobs`) n'est plus utilisé pour les
+> résultats (conservé pour d'éventuels besoins ponctuels ; `useGetJobById` reste utilisé
+> pour la fiche détail).
 
 ## APIs Externes Utilisées
 

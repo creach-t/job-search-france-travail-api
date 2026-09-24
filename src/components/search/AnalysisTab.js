@@ -11,8 +11,10 @@ import { Donut } from '../charts';
 import MarketTrendsCard from './MarketTrendsCard';
 import { useAllJobs } from '../../hooks/useAllJobs';
 import { useFullSweep } from '../../hooks/useFullSweep';
+import { useAdzunaJobs } from '../../hooks/useAdzunaJobs';
 import { useEntreprisesBulk } from '../../hooks/useEntreprise';
 import { analyzeJobs, aggregateInseeCompanies } from '../../utils/analytics';
+import { mergeOffers } from '../../domain/mergeOffers';
 import { exportCsv, exportReport } from '../../utils/exportData';
 import { toBulkParams } from '../../utils/searchLabel';
 
@@ -224,10 +226,14 @@ const AnalysisTab = ({ searchParams, label }) => {
   }, [paramsKey]);
 
   const { allJobs, total, isLoading, isError, loadedPages, totalApiPages } = useAllJobs(bulkParams, !!bulkParams);
+  const adz = useAdzunaJobs(bulkParams, { pages: 3, enabled: !!bulkParams });
 
   const usingSweep = sweptKeyRef.current === paramsKey && sweep.jobs.length > 0;
-  const effectiveJobs = usingSweep ? sweep.jobs : allJobs;
-  const effectiveTotal = usingSweep && sweep.total != null ? sweep.total : total;
+  const ftJobs = usingSweep ? sweep.jobs : allJobs;
+  // Flux unifié FT + Adzuna (dé-dupliqué) → l'analyse porte sur les deux sources
+  const effectiveJobs = useMemo(() => mergeOffers([ftJobs, adz.adzunaJobs]), [ftJobs, adz.adzunaJobs]);
+  const ftTotal = usingSweep && sweep.total != null ? sweep.total : total;
+  const effectiveTotal = (ftTotal || 0) + (adz.total || 0);
   const startSweep = () => { sweptKeyRef.current = paramsKey; sweep.start(bulkParams); };
 
   const report = useMemo(() => analyzeJobs(effectiveJobs, effectiveTotal), [effectiveJobs, effectiveTotal]);
@@ -374,8 +380,9 @@ const AnalysisTab = ({ searchParams, label }) => {
       </div>
 
       <p className="text-xs text-ink-faint leading-relaxed border-t border-[rgb(var(--line)/0.12)] pt-4">
-        Source : API France Travail (offres d'emploi v2). Salaires estimés en brut mensuel à partir des libellés ;
-        total réel via l'en-tête Content-Range. Au-delà de 1 150 offres, l'analyse porte sur un échantillon des plus récentes.
+        Sources : France Travail (offres v2){adz.adzunaJobs.length > 0 ? ' + Adzuna' : ''}, fusionnées et dé-dupliquées.
+        Salaires estimés en brut mensuel à partir des libellés ; total réel FT via l'en-tête Content-Range.
+        Au-delà de 1 150 offres FT, l'analyse porte sur un échantillon des plus récentes.
       </p>
     </div>
   );

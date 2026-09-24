@@ -1,19 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import JobList from '../JobList';
 import Spinner from '../ui/Spinner';
 import Error from '../ui/Error';
-import SourceBadge from '../ui/SourceBadge';
-import { useSearchJobs } from '../../hooks/useJobs';
-import { useAllJobs } from '../../hooks/useAllJobs';
-import { useMultiStackJobs } from '../../hooks/useMultiStackJobs';
-import { useAdzunaJobs } from '../../hooks/useAdzunaJobs';
-import { convertToAnnualSalary } from '../../utils/salaryUtils';
-import { DEFAULTS, PAGE_SIZE_OPTIONS } from '../../utils/constants';
-import { SOURCES } from '../../domain/offer';
-
-// Clé de dé-duplication inter-sources (titre + entreprise normalisés)
-const dedupKey = (job) =>
-  `${(job.intitule || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${(job.entreprise?.nom || '').toLowerCase().trim()}`;
+import { useUnifiedJobs } from '../../hooks/useUnifiedJobs';
+import { PAGE_SIZE_OPTIONS } from '../../utils/constants';
+import { SOURCES, getSourceMeta } from '../../domain/offer';
 
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
@@ -35,7 +26,6 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
-      {/* Sélecteur de taille de page */}
       <div className="flex items-center gap-1.5 text-sm text-ink-muted">
         <span className="text-xs text-ink-faint">Par page</span>
         <div className="relative">
@@ -56,7 +46,6 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
         </div>
       </div>
 
-      {/* Info position + pagination */}
       <div className="flex items-center gap-2">
         {total > 0 && (
           <span className="text-sm text-ink-faint shrink-0 hidden sm:inline">
@@ -65,7 +54,6 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
         )}
         {totalPages > 1 && (
           <>
-            {/* Mobile */}
             <div className="flex items-center gap-1 sm:hidden">
               <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 0 || isFetching}
                 className={`${btnBase} ${currentPage === 0 ? btnDisabled : btnNormal}`}>
@@ -82,7 +70,6 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
               </button>
             </div>
 
-            {/* Desktop */}
             <div className="hidden sm:flex items-center gap-1">
               <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 0 || isFetching}
                 className={`${btnBase} ${currentPage === 0 ? btnDisabled : btnNormal}`}>
@@ -114,184 +101,80 @@ const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSiz
   );
 };
 
-// ─── Onglet Résultats ─────────────────────────────────────────────────────
+// ─── Puce de filtre par source ──────────────────────────────────────────────
+const SourceChip = ({ active, onClick, label, count, dotColor }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
+      active ? 'bg-accent/15 text-accent border border-accent/30' : 'glass-card glass-hover text-ink-muted hover:text-ink'
+    }`}
+  >
+    {dotColor && <span className="h-2 w-2 rounded-full" style={{ background: dotColor }} aria-hidden="true" />}
+    {label}
+    <span className="tabular-nums text-ink-faint">{count.toLocaleString('fr-FR')}</span>
+  </button>
+);
+
+// ─── Onglet Résultats (flux unifié FT + Adzuna) ─────────────────────────────
 const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageSizeChange }) => {
-  const stacks = searchParams?.stacks ?? [];
-  const hasMultiStack = stacks.length > 0;
-  const hasSalaryFilter = !!searchParams?.salaryMin && !hasMultiStack;
+  const unified = useUnifiedJobs(searchParams);
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | source key
 
-  const baseParamsForStack = useMemo(() => {
-    if (!searchParams || !hasMultiStack) return null;
-    const { keywords: _kw, stacks: _st, ...rest } = searchParams;
-    return rest;
-  }, [searchParams, hasMultiStack]);
+  // Réinitialise le filtre de source quand la recherche change
+  const paramsKey = useMemo(() => JSON.stringify(searchParams || {}), [searchParams]);
+  useEffect(() => { setSourceFilter('all'); }, [paramsKey]);
 
-  const multiStackQuery = useMultiStackJobs(baseParamsForStack, stacks, hasMultiStack);
-  const normalQuery = useSearchJobs(
-    !hasMultiStack && !hasSalaryFilter ? searchParams : null,
-    currentPage,
-    pageSize
-  );
-  const allJobsQuery = useAllJobs(hasSalaryFilter ? searchParams : null, hasSalaryFilter);
+  const filtered = useMemo(() => (
+    sourceFilter === 'all' ? unified.jobs : unified.jobs.filter((j) => j.source === sourceFilter)
+  ), [unified.jobs, sourceFilter]);
 
-  // Source additionnelle Adzuna (page 1). Se gate seule si non configurée.
-  const adzuna = useAdzunaJobs(searchParams, {
-    page: 1,
-    resultsPerPage: Math.min(pageSize, 50),
-    enabled: !!searchParams,
-  });
+  const totalCount = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(currentPage, totalPages - 1);
+  const start = safePage * pageSize;
+  const pageJobs = filtered.slice(start, start + pageSize);
 
-  const display = useMemo(() => {
-    // ── Mode multi-stack ──
-    if (hasMultiStack) {
-      const { allJobs, isLoading, isFetching, isError, loadedCount, queryCount, totalsPerStack } = multiStackQuery;
-      const salaryMinAnnual = searchParams?.salaryMin ? parseInt(searchParams.salaryMin, 10) : null;
-      const filtered = salaryMinAnnual
-        ? allJobs.filter((job) => {
-            if (!job.salaire) return false;
-            const annual = convertToAnnualSalary(job.salaire);
-            return annual !== null && annual >= salaryMinAnnual;
-          })
-        : allJobs;
-
-      const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-      const safePage = Math.min(currentPage, pages - 1);
-      const start = safePage * pageSize;
-      const pageJobs = filtered.slice(start, start + pageSize);
-
-      const loadingLabel = isFetching && !isLoading && queryCount > 1
-        ? `Chargement… (${loadedCount}/${queryCount} stacks)` : null;
-      const stackSummary = totalsPerStack.filter((t) => t.apiTotal !== null)
-        .map((t) => `${t.stack} (${t.fetched})`).join(' · ');
-
-      return {
-        jobs: pageJobs, totalCount: filtered.length, totalPages: pages,
-        showingFrom: filtered.length > 0 ? start + 1 : 0, showingTo: start + pageJobs.length,
-        isLoading, isFetching, isError, isApiCapped: false, rawApiTotal: null,
-        loadingLabel, stackSummary, mode: 'multi-stack',
-      };
-    }
-
-    // ── Mode filtre salaire ──
-    if (hasSalaryFilter) {
-      const { allJobs, total, isLoading, isFetching, isError, loadedPages, totalApiPages } = allJobsQuery;
-      const salaryMinAnnual = parseInt(searchParams.salaryMin, 10);
-      const filtered = allJobs.filter((job) => {
-        if (!job.salaire) return false;
-        const annual = convertToAnnualSalary(job.salaire);
-        return annual !== null && annual >= salaryMinAnnual;
-      });
-      const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-      const safePage = Math.min(currentPage, pages - 1);
-      const start = safePage * pageSize;
-      const pageJobs = filtered.slice(start, start + pageSize);
-
-      return {
-        jobs: pageJobs, totalCount: filtered.length, totalPages: pages,
-        showingFrom: filtered.length > 0 ? start + 1 : 0, showingTo: start + pageJobs.length,
-        isLoading, isFetching, isError,
-        isApiCapped: total !== null && total > DEFAULTS.MAX_TOTAL, rawApiTotal: total,
-        loadingLabel: isFetching && !isLoading && totalApiPages > 1
-          ? `Chargement… (${loadedPages}/${totalApiPages} pages)` : null,
-        mode: 'salary',
-      };
-    }
-
-    // ── Mode normal ──
-    const { data, isLoading, isFetching, isError, error } = normalQuery;
-    const jobs = data?.resultats ?? [];
-    const total = data?.total ?? null;
-    const accessible = total !== null ? Math.min(total, DEFAULTS.MAX_TOTAL) : null;
-    const pages = accessible !== null ? Math.ceil(accessible / pageSize) : 1;
-    const start = currentPage * pageSize;
-
-    return {
-      jobs, totalCount: total, totalPages: pages,
-      showingFrom: start + 1, showingTo: start + jobs.length,
-      isLoading, isFetching, isError,
-      isApiCapped: total !== null && total > DEFAULTS.MAX_TOTAL, rawApiTotal: total,
-      loadingLabel: null, errorMsg: error?.message, mode: 'normal',
-    };
-  }, [hasMultiStack, hasSalaryFilter, multiStackQuery, normalQuery, allJobsQuery, searchParams, currentPage, pageSize]);
+  const ftCount = unified.counts[SOURCES.FRANCE_TRAVAIL] || 0;
+  const azCount = unified.counts[SOURCES.ADZUNA] || 0;
+  const showSourceFilter = unified.adzunaConfigured && azCount > 0;
 
   const barProps = {
-    currentPage, totalPages: display.totalPages, pageSize,
-    onPageChange, onPageSizeChange,
-    showingFrom: display.showingFrom, showingTo: display.showingTo,
-    total: display.totalCount, isFetching: display.isFetching,
+    currentPage: safePage, totalPages, pageSize, onPageChange, onPageSizeChange,
+    showingFrom: totalCount > 0 ? start + 1 : 0, showingTo: start + pageJobs.length,
+    total: totalCount, isFetching: unified.isFetching,
   };
 
-  // Offres Adzuna dédupliquées contre la page France Travail affichée
-  const adzunaJobs = useMemo(() => {
-    if (!adzuna.configured || adzuna.adzunaJobs.length === 0) return [];
-    const seen = new Set((display.jobs || []).map(dedupKey));
-    return adzuna.adzunaJobs.filter((j) => !seen.has(dedupKey(j)));
-  }, [adzuna.configured, adzuna.adzunaJobs, display.jobs]);
-
-  if (display.isLoading) {
-    return (
-      <Spinner text={
-        hasMultiStack
-          ? `Recherche sur ${stacks.length} stack${stacks.length > 1 ? 's' : ''}…`
-          : hasSalaryFilter ? 'Chargement des offres…' : 'Recherche en cours...'
-      } />
-    );
+  if (unified.isLoading) {
+    return <Spinner text={unified.hasMultiStack ? 'Recherche multi-stack…' : 'Recherche en cours…'} />;
   }
-  if (display.isError) {
-    return <Error message={display.errorMsg || "Une erreur s'est produite. Veuillez réessayer."} />;
+  if (unified.isError) {
+    return <Error message="Une erreur s'est produite. Veuillez réessayer." />;
   }
 
   return (
     <>
       {/* En-tête résultats */}
       <div className="flex flex-wrap items-center gap-3 mb-1">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-lg font-semibold text-ink">
-            <span className="text-accent font-bold">
-              {display.totalCount !== null ? display.totalCount.toLocaleString('fr-FR') : display.jobs.length}
-            </span>{' '}
-            offre{display.totalCount !== 1 ? 's' : ''} trouvée{display.totalCount !== 1 ? 's' : ''}
-          </h2>
+        <h2 className="text-lg font-semibold text-ink">
+          <span className="text-accent font-bold">{totalCount.toLocaleString('fr-FR')}</span>{' '}
+          offre{totalCount !== 1 ? 's' : ''} dans le flux
+        </h2>
 
-          {display.isApiCapped && (
-            <div className="relative group">
-              <button className="p-0.5 rounded-full text-amber-400 hover:text-amber-500 transition-colors" aria-label="Limitation de l'API">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-72 bg-gray-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                <strong>{display.rawApiTotal?.toLocaleString('fr-FR')} offres</strong> correspondent à votre recherche.{' '}
-                Seules les <strong>1 150 premières</strong> sont accessibles — affinez vos critères.
-              </div>
+        {unified.ftCapped && (
+          <div className="relative group">
+            <button className="p-0.5 rounded-full text-amber-400 hover:text-amber-500 transition-colors" aria-label="Limitation de l'API">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-72 bg-gray-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+              <strong>{unified.ftTotal?.toLocaleString('fr-FR')} offres</strong> France Travail correspondent — le flux est limité aux 1 150 plus récentes (affinez vos critères).
             </div>
-          )}
-
-          {display.mode === 'multi-stack' && display.stackSummary && (
-            <div className="relative group">
-              <button className="p-0.5 rounded-full text-accent hover:bg-accent/10 transition-colors" aria-label="Détail par stack">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </button>
-              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-72 bg-gray-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                Résultats combinés et dédupliqués — {display.stackSummary}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {display.loadingLabel && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
-            <svg className="animate-spin h-3.5 w-3.5 text-accent" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            {display.loadingLabel}
-          </span>
+          </div>
         )}
 
-        {display.isFetching && !display.isLoading && !display.loadingLabel && (
+        {unified.isFetching && (
           <svg className="animate-spin h-4 w-4 text-ink-faint" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -299,31 +182,20 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
         )}
       </div>
 
-      <ResultsBar {...barProps} />
-      <JobList jobs={display.jobs} />
-      <ResultsBar {...barProps} />
-
-      {/* Source additionnelle : Adzuna (s'affiche uniquement si configurée) */}
-      {adzuna.configured && adzunaJobs.length > 0 && (
-        <section className="mt-10 pt-6 border-t border-[rgb(var(--line)/0.12)]">
-          <div className="flex items-center gap-2 mb-4">
-            <SourceBadge source={SOURCES.ADZUNA} full />
-            <h3 className="text-base font-semibold text-ink">
-              Aussi sur Adzuna
-              <span className="text-ink-faint font-normal">
-                {' · '}{(adzuna.total ?? adzunaJobs.length).toLocaleString('fr-FR')} offre{(adzuna.total ?? adzunaJobs.length) !== 1 ? 's' : ''}
-              </span>
-            </h3>
-            {adzuna.isFetching && (
-              <svg className="animate-spin h-4 w-4 text-ink-faint" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            )}
-          </div>
-          <JobList jobs={adzunaJobs} />
-        </section>
+      {/* Filtre par source (visible si Adzuna configurée et présente) */}
+      {showSourceFilter && (
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <SourceChip active={sourceFilter === 'all'} onClick={() => setSourceFilter('all')} label="Toutes" count={unified.jobs.length} />
+          <SourceChip active={sourceFilter === SOURCES.FRANCE_TRAVAIL} onClick={() => setSourceFilter(SOURCES.FRANCE_TRAVAIL)}
+            label={getSourceMeta(SOURCES.FRANCE_TRAVAIL).label} count={ftCount} dotColor="#60a5fa" />
+          <SourceChip active={sourceFilter === SOURCES.ADZUNA} onClick={() => setSourceFilter(SOURCES.ADZUNA)}
+            label={getSourceMeta(SOURCES.ADZUNA).label} count={azCount} dotColor="#34d399" />
+        </div>
       )}
+
+      <ResultsBar {...barProps} />
+      <JobList jobs={pageJobs} />
+      <ResultsBar {...barProps} />
     </>
   );
 };
