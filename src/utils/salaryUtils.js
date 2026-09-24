@@ -5,6 +5,22 @@
  *                                   "Annuel de X Euros à Y Euros sur N mois"
  */
 
+// Fiabilité d'un montant étiqueté « Mensuel » (France Travail / employeurs se
+// trompent souvent de périodicité). Trois cas :
+//  - ≤ 10 000 € : mensuel plausible → on fait confiance.
+//  - ≥ 18 000 € : clairement un ANNUEL mal étiqueté (ex. « Mensuel de 25000 à 30000 ») → ÷12.
+//  - entre les deux : ni mensuel (irréaliste) ni annuel (÷12 sous le SMIC) plausible
+//    → donnée corrompue (ex. « Mensuel de 11100 à 14100 ») → salaire ignoré.
+const TRUST_MONTHLY_MAX = 10000;
+const ANNUAL_MISLABEL_MIN = 18000;
+
+// Résout un montant « mensuel » déclaré en valeur mensuelle fiable, ou null si corrompu.
+const resolveDeclaredMonthly = (montant) => {
+  if (montant <= TRUST_MONTHLY_MAX) return Math.round(montant);
+  if (montant >= ANNUAL_MISLABEL_MIN) return Math.round(montant / 12);
+  return null;
+};
+
 // Détecte la période salariale dans un texte (word boundaries pour éviter les faux positifs)
 const detectPeriod = (text) => {
   if (/horaire|\/h\b|€\/h|\bh\b/.test(text)) return 'hourly';
@@ -77,7 +93,8 @@ export const formatSalaryToMonthly = (salaire) => {
   } else if (period === 'annual') {
     montantMensuel = Math.round(montant / 12);
   } else if (period === 'monthly') {
-    montantMensuel = Math.round(montant);
+    montantMensuel = resolveDeclaredMonthly(montant);
+    if (montantMensuel === null) return 'Salaire non précisé'; // donnée corrompue
   } else {
     // Heuristique basée sur la valeur
     if (montant < 100) {
@@ -111,7 +128,11 @@ export const convertToAnnualSalary = (salaire) => {
   if (montant === null || montant === 0) return null;
 
   if (period === 'hourly') return Math.round(montant * 1820); // 35h × 52 semaines
-  if (period === 'monthly') return Math.round(montant * 12);
+  if (period === 'monthly') {
+    if (montant <= TRUST_MONTHLY_MAX) return Math.round(montant * 12);
+    if (montant >= ANNUAL_MISLABEL_MIN) return Math.round(montant); // annuel mal étiqueté
+    return null; // 10000–18000 : donnée corrompue → inconnu
+  }
   if (period === 'annual') return Math.round(montant);
 
   // Heuristique
