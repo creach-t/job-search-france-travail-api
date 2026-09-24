@@ -242,8 +242,11 @@ app.post('/api/adzuna/search', async (req, res) => {
     });
   }
   try {
+    // Pas de tri par défaut : Adzuna trie par pertinence (sort_by=date noyait les
+    // vraies correspondances sous les gros publiants récents). Le flux unifié
+    // re-trie ensuite par date côté client.
     const { what, where, page = 1, resultsPerPage = 50, salaryMin,
-            contractType, workingHours, distance, sortBy = 'date' } = req.body || {};
+            contractType, workingHours, distance, sortBy } = req.body || {};
 
     const query = {
       results_per_page: Math.min(Number(resultsPerPage) || 50, 50),

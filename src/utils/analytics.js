@@ -66,9 +66,16 @@ const quantile = (nums, q) => {
 
 // ── Extracteurs de champs (défensifs) ────────────────────────────────────────
 
+// Bornes de plausibilité d'un salaire mensuel brut (€) : écarte les valeurs
+// aberrantes (offres à « 1 € », erreurs de saisie à 6 chiffres…) qui fausseraient
+// médiane, fourchette et histogramme.
+const MIN_MONTHLY = 300;
+const MAX_MONTHLY = 50000;
 const monthlySalary = (job) => {
   const annual = convertToAnnualSalary(job.salaire);
-  return annual ? Math.round(annual / 12) : null;
+  if (!annual) return null;
+  const m = Math.round(annual / 12);
+  return m >= MIN_MONTHLY && m <= MAX_MONTHLY ? m : null;
 };
 
 const ageInDays = (job) => {

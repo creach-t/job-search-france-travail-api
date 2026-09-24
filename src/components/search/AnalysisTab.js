@@ -15,6 +15,7 @@ import { useAdzunaJobs } from '../../hooks/useAdzunaJobs';
 import { useEntreprisesBulk } from '../../hooks/useEntreprise';
 import { analyzeJobs, aggregateInseeCompanies } from '../../utils/analytics';
 import { mergeOffers } from '../../domain/mergeOffers';
+import { SOURCES } from '../../domain/offer';
 import { exportCsv, exportReport } from '../../utils/exportData';
 import { toBulkParams } from '../../utils/searchLabel';
 
@@ -49,13 +50,13 @@ const Kpi = ({ icon: Icon, tint = 'violet', label, value, hint }) => {
   );
 };
 
-// ── Pastille couverture (icône + info-bulle hover/touch) ─────────────────────
-const CoverageBadge = ({ meta }) => {
+// ── Pastille couverture multi-sources (icône + info-bulle hover/touch) ────────
+const CoverageBadge = ({ meta, ft, adzuna }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const exhaustive = !meta.isSample;
+  const ftExhaustive = ft.total ? ft.analyzed >= ft.total : true;
   const cov = Math.round(meta.coverage * 100);
-  const Icon = exhaustive ? CheckCircleIcon : InformationCircleIcon;
+  const Icon = ftExhaustive ? CheckCircleIcon : InformationCircleIcon;
 
   useEffect(() => {
     const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -68,20 +69,27 @@ const CoverageBadge = ({ meta }) => {
       onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button type="button" onClick={() => setOpen((o) => !o)}
         className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold ${
-          exhaustive ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
+          ftExhaustive ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
         <Icon className="h-4 w-4" />
-        {exhaustive ? 'Exhaustif' : `${cov}%`}
+        {ftExhaustive ? 'Exhaustif' : `${cov}%`}
       </button>
       {open && (
-        <div className="cmd-panel cmd-pop absolute left-0 mt-2 z-30 w-64 p-3 text-xs text-ink-muted">
-          {exhaustive ? (
-            <p>Analyse <strong className="text-ink">exhaustive</strong> : les {fmt(meta.analyzed)} offres correspondant à la recherche sont toutes prises en compte.</p>
-          ) : (
-            <>
-              <p><strong className="text-ink">{fmt(meta.analyzed)}</strong> offres analysées sur <strong className="text-ink">{fmt(meta.total)}</strong> ({cov}% de couverture).</p>
-              <p className="mt-1.5 text-ink-faint">L'API plafonne à 1 150 offres/requête. Lance le balayage complet pour couvrir 100 %.</p>
-              <div className="mt-2 h-1.5 rounded-full bg-amber-500/20 overflow-hidden"><div className="h-full rounded-full bg-amber-400" style={{ width: `${cov}%` }} /></div>
-            </>
+        <div className="cmd-panel cmd-pop absolute left-0 mt-2 z-30 w-72 p-3 text-xs text-ink-muted">
+          <p><strong className="text-ink">{fmt(meta.analyzed)}</strong> offres analysées sur <strong className="text-ink">{fmt(meta.total)}</strong> ({cov}% de couverture).</p>
+          <div className="mt-2 space-y-1">
+            <p className="flex justify-between gap-3">
+              <span>France Travail</span>
+              <span className="tabular-nums text-ink">{fmt(ft.analyzed)}{ft.total ? ` / ${fmt(ft.total)}` : ''}</span>
+            </p>
+            {adzuna.configured && (
+              <p className="flex justify-between gap-3">
+                <span>Adzuna</span>
+                <span className="tabular-nums text-ink">{fmt(adzuna.analyzed)}{adzuna.total ? ` / ${fmt(adzuna.total)}` : ''}</span>
+              </p>
+            )}
+          </div>
+          {!ftExhaustive && (
+            <p className="mt-2 text-ink-faint">France Travail plafonne à 1 150 offres/requête — lance le balayage complet pour couvrir 100 % côté FT.</p>
           )}
         </div>
       )}
@@ -241,6 +249,10 @@ const AnalysisTab = ({ searchParams, label }) => {
   const b = report.breakdowns;
   const hasResults = !isLoading && effectiveJobs.length > 0;
 
+  // Comptages par source pour une couverture honnête (FT plafonné/balayable, Adzuna partiel)
+  const azAnalyzed = useMemo(() => effectiveJobs.reduce((n, o) => (o.source === SOURCES.ADZUNA ? n + 1 : n), 0), [effectiveJobs]);
+  const ftAnalyzed = effectiveJobs.length - azAnalyzed;
+
   const contractDonut = useMemo(() => (b?.contracts?.rows || []).slice(0, 5).map((r) => ({ label: r.label, value: r.count })), [b]);
 
   // ── Enrichissement INSEE des principaux recruteurs ──────────────────────────
@@ -270,8 +282,12 @@ const AnalysisTab = ({ searchParams, label }) => {
     <div className="space-y-4">
       {/* Barre d'outils */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <CoverageBadge meta={report.meta} />
-        {(report.meta.isSample || usingSweep) && <SweepBar sweep={sweep} onStart={startSweep} onCancel={sweep.cancel} sampleTotal={total} />}
+        <CoverageBadge
+          meta={report.meta}
+          ft={{ analyzed: ftAnalyzed, total: ftTotal }}
+          adzuna={{ analyzed: azAnalyzed, total: adz.total, configured: adz.configured }}
+        />
+        {((ftTotal && ftTotal > 1150) || usingSweep) && <SweepBar sweep={sweep} onStart={startSweep} onCancel={sweep.cancel} sampleTotal={ftTotal} />}
         <div className="ml-auto"><ExportBtns jobs={effectiveJobs} report={report} label={label} /></div>
       </div>
 

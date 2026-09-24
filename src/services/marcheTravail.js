@@ -57,9 +57,27 @@ const pctOf = (row, codeTypeCaract, codeCaract) => {
  * Parse la réponse stat-offres en série trimestrielle triée + dernier point.
  * @returns {{ series: Array<{period,codePeriode,value,cdiPct,cadrePct}>, latest, growthPct }|null}
  */
+// La réponse SODE contient plusieurs séries par période (codeNomenclature) :
+// PE / PE-CUMUL12MOIS / TOFF / TOFF-CUMUL12MOIS. On garde UNE série trimestrielle
+// non cumulée, sinon les séries se mélangent (courbe en dents de scie, totaux faux).
+// Préférence : TOFF (toutes offres) puis PE (offres France Travail).
+const NOMENCLATURE_PREFERENCE = ['TOFF', 'PE'];
+
+const pickNomenclature = (rows) => {
+  if (!rows.some((r) => r.codeNomenclature)) return rows; // autre endpoint : rien à filtrer
+  for (const nom of NOMENCLATURE_PREFERENCE) {
+    const sub = rows.filter((r) => r.codeNomenclature === nom);
+    if (sub.length) return sub;
+  }
+  // repli : la 1ʳᵉ nomenclature non cumulée rencontrée
+  const first = rows.find((r) => r.codeNomenclature && !/CUMUL/i.test(r.codeNomenclature));
+  return first ? rows.filter((r) => r.codeNomenclature === first.codeNomenclature) : rows;
+};
+
 export const parseStatSeries = (resp) => {
-  const rows = resp?.listeValeursParPeriode || (Array.isArray(resp) ? resp : []);
-  if (!rows.length) return null;
+  const allRows = resp?.listeValeursParPeriode || (Array.isArray(resp) ? resp : []);
+  if (!allRows.length) return null;
+  const rows = pickNomenclature(allRows);
 
   const series = rows
     .map((r) => ({

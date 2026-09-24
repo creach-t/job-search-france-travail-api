@@ -11,7 +11,7 @@ import { KNOWN_SOURCE_COUNT, SOURCES } from '../../domain/offer';
 const relativeTime = (dateStr) => {
   if (!dateStr) return '';
   const days = Math.floor((Date.now() - new Date(dateStr)) / 86400000);
-  if (days === 0) return "aujourd'hui";
+  if (days <= 0) return "aujourd'hui"; // dates au présent/futur (décalage horaire des sources)
   if (days === 1) return 'hier';
   if (days < 7) return `il y a ${days}j`;
   if (days < 14) return 'il y a 1 sem';
