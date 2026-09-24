@@ -85,7 +85,9 @@ Guide détaillé : `src/domain/README.md`. Côté serveur, même logique via
 (clé intitulé+entreprise, FT prioritaire) et **trie par date**. Les 3 onglets
 consomment ce flux :
 - **Résultats** : liste unique, pagination locale, **puces de filtre par source**
-  (Toutes / France Travail / Adzuna), badge `SourceBadge` par carte.
+  (Toutes / France Travail / Adzuna), badge `SourceBadge` par carte, et **tri**
+  (défaut « Offres les plus détaillées » via `domain/offerScore.js` — score de
+  complétude ; sinon Plus récentes / Salaire décroissant).
 - **Analyse** : `analyzeJobs` porte sur le combiné FT+Adzuna (dé-dupliqué).
 - **Carte** : clusters des offres des deux sources (Adzuna a lat/long).
 Les cartes d'offres externes (Adzuna) ouvrent leur page d'origine (pas de fiche

@@ -5,6 +5,14 @@ import Error from '../ui/Error';
 import { useUnifiedJobs } from '../../hooks/useUnifiedJobs';
 import { PAGE_SIZE_OPTIONS } from '../../utils/constants';
 import { SOURCES, getSourceMeta } from '../../domain/offer';
+import { offerScore } from '../../domain/offerScore';
+import { convertToAnnualSalary } from '../../utils/salaryUtils';
+
+const SORT_OPTIONS = [
+  { value: 'details', label: 'Offres les plus détaillées' },
+  { value: 'date', label: 'Plus récentes' },
+  { value: 'salary', label: 'Salaire décroissant' },
+];
 
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
@@ -120,6 +128,7 @@ const SourceChip = ({ active, onClick, label, count, dotColor }) => (
 const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageSizeChange }) => {
   const unified = useUnifiedJobs(searchParams);
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | source key
+  const [sort, setSort] = useState('details');             // tri par défaut : richesse d'infos
 
   // Réinitialise le filtre de source quand la recherche change
   const paramsKey = useMemo(() => JSON.stringify(searchParams || {}), [searchParams]);
@@ -129,11 +138,28 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
     sourceFilter === 'all' ? unified.jobs : unified.jobs.filter((j) => j.source === sourceFilter)
   ), [unified.jobs, sourceFilter]);
 
-  const totalCount = filtered.length;
+  // Tri intelligent : par complétude (défaut), date, ou salaire — date en départage
+  const sorted = useMemo(() => {
+    const dt = (o) => (o.dateCreation ? Date.parse(o.dateCreation) : -Infinity);
+    const list = [...filtered];
+    if (sort === 'date') {
+      list.sort((a, b) => dt(b) - dt(a));
+    } else if (sort === 'salary') {
+      const sal = (o) => convertToAnnualSalary(o.salaire) ?? -Infinity;
+      list.sort((a, b) => (sal(b) - sal(a)) || (dt(b) - dt(a)));
+    } else {
+      list.sort((a, b) => (offerScore(b) - offerScore(a)) || (dt(b) - dt(a)));
+    }
+    return list;
+  }, [filtered, sort]);
+
+  const changeSort = (v) => { setSort(v); onPageChange(0); };
+
+  const totalCount = sorted.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(currentPage, totalPages - 1);
   const start = safePage * pageSize;
-  const pageJobs = filtered.slice(start, start + pageSize);
+  const pageJobs = sorted.slice(start, start + pageSize);
 
   const ftCount = unified.counts[SOURCES.FRANCE_TRAVAIL] || 0;
   const azCount = unified.counts[SOURCES.ADZUNA] || 0;
@@ -180,6 +206,25 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         )}
+
+        {/* Tri */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="text-xs text-ink-faint hidden sm:inline">Trier</span>
+          <div className="relative">
+            <select
+              value={sort}
+              onChange={(e) => changeSort(e.target.value)}
+              className="glass-input h-8 pl-2.5 pr-7 rounded-lg text-sm font-medium text-ink appearance-none cursor-pointer"
+            >
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+              <svg className="h-3 w-3 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filtre par source (visible si Adzuna configurée et présente) */}
