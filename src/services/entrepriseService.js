@@ -15,6 +15,7 @@ export const lookupEntreprise = async ({ nom, codePostal } = {}) => {
   try {
     const { data } = await axios.get(`${API.BASE_URL}${API.ENDPOINTS.ENTREPRISES_SEARCH}`, {
       params: { nom: nom.trim(), codePostal: codePostal || undefined },
+      timeout: API.TIMEOUT,
     });
     return data || { found: false };
   } catch (error) {
@@ -32,7 +33,7 @@ export const lookupEntreprisesBulk = async (companies = []) => {
   const clean = (companies || []).filter((c) => c?.nom && c.nom.trim().length >= 2);
   if (clean.length === 0) return [];
   try {
-    const { data } = await axios.post(`${API.BASE_URL}${API.ENDPOINTS.ENTREPRISES_BULK}`, { companies: clean });
+    const { data } = await axios.post(`${API.BASE_URL}${API.ENDPOINTS.ENTREPRISES_BULK}`, { companies: clean }, { timeout: API.TIMEOUT });
     return Array.isArray(data?.results) ? data.results : [];
   } catch (error) {
     console.error('Erreur enrichissement entreprises (bulk):', error.message);

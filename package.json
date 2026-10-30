@@ -10,6 +10,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^7.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
@@ -19,6 +21,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --watchAll=false",
+    "test:server": "node --test \"server/**/*.test.js\"",
+    "test:all": "npm run test:ci && npm run test:server",
     "eject": "react-scripts eject",
     "server": "node --watch server/server.js",
     "dev": "concurrently \"npm run server\" \"npm run start\""
@@ -46,10 +51,5 @@
     "concurrently": "^8.2.2",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5"
-  },
-  "serverDependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2"
   }
 }

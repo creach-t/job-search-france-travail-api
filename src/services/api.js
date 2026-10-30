@@ -8,6 +8,7 @@ import { normalizeOffer, normalizeOffers } from '../domain/adapters';
  */
 const apiClient = axios.create({
   baseURL: API.BASE_URL,
+  timeout: API.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -210,7 +211,7 @@ export const searchMetiers = async (query = '') => {
       ? `${base}?query=${encodeURIComponent(query)}`
       : base;
 
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: API.TIMEOUT });
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('Erreur lors de la recherche de métiers:', error);

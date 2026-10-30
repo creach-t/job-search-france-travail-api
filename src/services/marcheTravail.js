@@ -15,7 +15,7 @@
 import axios from 'axios';
 import { API } from '../utils/constants';
 
-const client = axios.create({ baseURL: API.BASE_URL, headers: { 'Content-Type': 'application/json' } });
+const client = axios.create({ baseURL: API.BASE_URL, timeout: API.TIMEOUT, headers: { 'Content-Type': 'application/json' } });
 
 export const getMarketConfig = async () => {
   try {

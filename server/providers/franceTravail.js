@@ -12,6 +12,10 @@
 const axios = require('axios');
 const { debug } = require('../logger');
 
+// Délai max d'un appel France Travail (évite les requêtes qui pendent et
+// finissent par saturer le serveur si l'API amont ralentit).
+const FT_TIMEOUT = Number(process.env.FT_TIMEOUT_MS) || 25000;
+
 const config = () => ({
   TOKEN_URL: process.env.FT_TOKEN_URL,
   BASE_URL: process.env.FT_BASE_URL,
@@ -41,6 +45,7 @@ async function getAccessToken(scope) {
 
     const response = await axios.post(TOKEN_URL, params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: FT_TIMEOUT,
     });
     // Marge de sécurité de 60 s avant expiration
     tokenCache[s] = {
@@ -70,6 +75,7 @@ async function getWithTotal(url, params, token, retryCount = 0) {
     const response = await axios.get(url, {
       params,
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      timeout: FT_TIMEOUT,
     });
     const contentRange = response.headers['content-range'] || '';
     debug(`📊 [Content-Range] "${contentRange}"`);
@@ -86,25 +92,40 @@ async function getWithTotal(url, params, token, retryCount = 0) {
   }
 }
 
+/**
+ * GET JSON simple avec timeout et un retry sur 401 (token expiré renouvelé).
+ * @returns {Promise<any>} data de la réponse
+ */
+async function getJson(url, token, retryCount = 0) {
+  try {
+    const response = await axios.get(url, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      timeout: FT_TIMEOUT,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401 && retryCount === 0) {
+      invalidateToken();
+      const newToken = await getAccessToken();
+      return getJson(url, newToken, retryCount + 1);
+    }
+    throw error;
+  }
+}
+
 /** Recherche d'offres. `params` = paramètres France Travail déjà formatés. */
 function searchOffres(params, token) {
   return getWithTotal(`${offresBase()}/offres/search`, params, token);
 }
 
 /** Détail d'une offre par id. */
-async function getOffre(id, token) {
-  const response = await axios.get(`${offresBase()}/offres/${id}`, {
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-  });
-  return response.data;
+function getOffre(id, token) {
+  return getJson(`${offresBase()}/offres/${id}`, token);
 }
 
 /** Détail d'un métier ROME par code. */
-async function getMetier(code, token) {
-  const response = await axios.get(`${romeBase()}/metier/${code}`, {
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  return response.data;
+function getMetier(code, token) {
+  return getJson(`${romeBase()}/metier/${code}`, token);
 }
 
 module.exports = {

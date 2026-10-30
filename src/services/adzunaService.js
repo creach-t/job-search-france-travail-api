@@ -14,7 +14,7 @@ export { toAdzunaParams };
 
 export const getAdzunaConfig = async () => {
   try {
-    const { data } = await axios.get(`${API.BASE_URL}${API.ENDPOINTS.ADZUNA_CONFIG}`);
+    const { data } = await axios.get(`${API.BASE_URL}${API.ENDPOINTS.ADZUNA_CONFIG}`, { timeout: API.TIMEOUT });
     return data;
   } catch {
     return { configured: false };
@@ -28,6 +28,6 @@ export const getAdzunaConfig = async () => {
  */
 export const searchAdzunaJobs = async (searchParams = {}, { page = 1, resultsPerPage = 50 } = {}) => {
   const body = { ...toAdzunaParams(searchParams), page, resultsPerPage };
-  const { data } = await axios.post(`${API.BASE_URL}${API.ENDPOINTS.ADZUNA_SEARCH}`, body);
+  const { data } = await axios.post(`${API.BASE_URL}${API.ENDPOINTS.ADZUNA_SEARCH}`, body, { timeout: API.TIMEOUT });
   return { resultats: normalizeOffers(data?.results, SOURCES.ADZUNA), total: data?.total ?? null };
 };

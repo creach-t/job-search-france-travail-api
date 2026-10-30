@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
@@ -18,6 +20,20 @@ const { debug } = require('./logger');
 const app = express();
 // SERVER_PORT (racine) > PORT (server/.env) > défaut
 const PORT = process.env.SERVER_PORT || process.env.PORT || 4059;
+
+// Derrière Traefik/Cloudflare : l'IP réelle est dans X-Forwarded-For.
+// Indispensable pour que le rate-limit compte par client et non par proxy.
+app.set('trust proxy', 1);
+
+// ── En-têtes de sécurité (helmet) ─────────────────────────────────────────────
+// CSP désactivée : Express sert aussi le SPA React (styles/scripts inline du build
+// CRA) → une CSP stricte casserait le front. On conserve tous les autres en-têtes.
+// CORP en cross-origin : l'API est consommée depuis un autre sous-domaine.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
 
 const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
 
@@ -50,8 +66,38 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Limite de taille des corps de requête (garde-fou DoS / payload abusive).
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+// ── Rate-limiting des endpoints /api ──────────────────────────────────────────
+// Le front SPA est public : l'API agit comme proxy vers France Travail/Adzuna/INSEE
+// et ne peut pas authentifier un « vrai » utilisateur sans login. Le rate-limit par
+// IP est donc la principale défense contre l'épuisement des quotas tiers (scraping,
+// boucles). Une session humaine normale déclenche ~15-20 appels par recherche ; la
+// valeur par défaut (100 req/min) laisse ~5 recherches/min et plafonne les abus.
+const apiLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requêtes, veuillez réessayer dans un instant.' },
+});
+app.use('/api', apiLimiter);
+
+// ── Clé partagée optionnelle (défense en profondeur) ──────────────────────────
+// Désactivée tant que API_SHARED_KEY n'est pas définie (no-op par défaut, ne casse
+// pas le SPA public). Si elle est définie, les endpoints /api exigent l'en-tête
+// `x-api-key` — utile uniquement derrière un client non public (serveur-à-serveur).
+// /health et les endpoints *_config restent toujours ouverts.
+const API_SHARED_KEY = process.env.API_SHARED_KEY || null;
+if (API_SHARED_KEY) {
+  app.use('/api', (req, res, next) => {
+    if (req.path.endsWith('/config')) return next();
+    if (req.get('x-api-key') === API_SHARED_KEY) return next();
+    return res.status(401).json({ message: 'Clé API invalide ou manquante' });
+  });
+}
 
 // ── Redirection navigateur du domaine API vers le frontend ────────────────────
 // Front et API sont servis par le même Express (routés par Traefik selon le Host).
@@ -197,6 +243,7 @@ app.post('/api/marche-travail', async (req, res) => {
     data: method.toUpperCase() === 'GET' ? undefined : payload,
     params: method.toUpperCase() === 'GET' ? payload : undefined,
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    timeout: 25000,
   });
 
   try {
@@ -283,6 +330,7 @@ app.get('/api/communes/search', async (req, res) => {
 
     const response = await axios.get(GEO_API_URL, {
       params: { nom: query, fields: 'nom,code,codesPostaux,population', boost: 'population', limit },
+      timeout: 10000,
     });
 
     let results = response.data;
@@ -332,7 +380,7 @@ app.get('/api/communes/search', async (req, res) => {
 
 app.get('/api/communes/:code', async (req, res) => {
   try {
-    const response = await axios.get(`${GEO_API_URL}/${req.params.code}`);
+    const response = await axios.get(`${GEO_API_URL}/${req.params.code}`, { timeout: 10000 });
     res.json(response.data);
   } catch (error) {
     console.error('Erreur récupération commune:', error.response?.data || error.message);

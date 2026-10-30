@@ -28,6 +28,8 @@ export const ROUTES = {
 export const API = {
   // Utilise la variable d'environnement ou une valeur par défaut
   BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:4059/api',
+  // Délai max d'une requête HTTP (évite les requêtes qui pendent indéfiniment).
+  TIMEOUT: 25000,
   ENDPOINTS: {
     AUTH: '/auth',
     SEARCH_JOBS: '/jobs/search',

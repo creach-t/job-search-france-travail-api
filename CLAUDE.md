@@ -113,7 +113,7 @@ FT : multi-stack ? useMultiStackJobs (N req/stack)   ┐
 Adzuna : useAdzunaJobs (multi-pages, ~150 offres)     ┘   → filtre salaire client → pagination locale
 ```
 
-- **Multi-stack** (≥1 stack DevJobs) : 1 requête FT par stack (150 max), combinées + dédupliquées.
+- **Multi-stack** (≥1 stack) : 1 requête FT par stack (150 max), combinées + dédupliquées.
 - **Sinon** : corpus FT complet via `useAllJobs` (jusqu'à 1 150).
 - **Adzuna** : quelques pages, fusionnées, dé-dupliquées inter-sources (FT prioritaire).
 - **Filtre salaire** : appliqué côté client sur le flux fusionné (`convertToAnnualSalary`).
@@ -225,71 +225,34 @@ FT_TOKEN_URL=https://entreprise.francetravail.fr/connexion/oauth2/access_token
 FT_BASE_URL=https://api.francetravail.io/
 ```
 
-## Mode DevJobs
+## Modes & contexte global
 
-### Présentation
-
-L'application propose deux modes d'utilisation :
-
-- **Mode DevJobs** (par défaut) : interface orientée développeurs, navbar sombre, filtres de stacks technologiques, mot-clé "développeur" garanti si aucun critère saisi
-- **Mode Classique** : recherche généraliste tous secteurs, navbar blanche, sans filtres de stacks
-
-Le mode est persisté en `localStorage` (`devJobsMode`). Premier lancement → DevJobs par défaut.
-
-### Toggle DevJobs/Classique
-
-Le toggle de mode (dans la barre / le menu) affiche **le mode de destination** (pas le mode courant) :
-
-| Mode actif | Label du bouton | Effet du clic |
-|------------|----------------|---------------|
-| DevJobs (défaut) | "Classique" | Passe en mode Classique |
-| Classique | "DevJobs" | Repasse en DevJobs |
-
-Changer de mode **réinitialise les résultats et la recherche en cours** via `AppContext`.
+> ⚠️ **Historique — le « Mode DevJobs » a été retiré.** L'app avait deux modes
+> (DevJobs / Classique) pilotés par `isDevMode` + `localStorage.devJobsMode` (navbar
+> sombre, fallback mot-clé « développeur », toggle qui réinitialisait la recherche).
+> **Tout cela n'existe plus** : l'application est désormais 100 % généraliste.
+> `AppContext` expose encore `isDevMode: false` **uniquement par compatibilité**
+> (pas de toggle, pas de `useRef(prevIsDevMode)`, pas de reset au changement de mode).
+> Ne pas réintroduire de logique conditionnée par le mode.
 
 ### Contexte global (`AppContext.js`)
 
+État réellement exposé aujourd'hui (toutes les lectures de storage sont enveloppées de `try/catch`) :
+
 ```javascript
-// Favoris
-const [savedJobs, setSavedJobs] = useState([]); // chargé depuis localStorage au mount
-const saveJob        = (job)   => persist([...savedJobs, job]);
-const removeJob      = (jobId) => persist(savedJobs.filter(j => j.id !== jobId));
-const clearSavedJobs = ()      => persist([]);
-const isJobSaved     = (jobId) => savedJobs.some(j => j.id === jobId);
-
-// Mode dev
-const [isDevMode, setIsDevMode] = useState(() => {
-  const stored = localStorage.getItem('devJobsMode');
-  return stored === null ? true : stored === 'true'; // DevJobs par défaut
-});
-
-// Recherche persistante (survit aux navigations)
-const [homeSearchParams, setHomeSearchParams] = useState(() => {
-  const s = sessionStorage.getItem('lastSearchParams');
-  return s ? JSON.parse(s) : null;
-});
-const prevIsDevMode = useRef(isDevMode); // init avec valeur courante → pas de reset au montage
-useEffect(() => {
-  if (prevIsDevMode.current !== isDevMode) {
-    prevIsDevMode.current = isDevMode;
-    setHomeSearchParams(null);
-    sessionStorage.removeItem('lastSearchParams');
-  }
-}, [isDevMode]);
-const updateHomeSearchParams = (params) => {
-  setHomeSearchParams(params);
-  sessionStorage.setItem('lastSearchParams', JSON.stringify(params));
-};
-
-// Exposé : { savedJobs, saveJob, removeJob, clearSavedJobs, isJobSaved,
-//            isDevMode, toggleDevMode, homeSearchParams, updateHomeSearchParams }
+// Favoris — persistés dans localStorage 'savedJobs'
+savedJobs, saveJob, removeJob, clearSavedJobs, isJobSaved
+// Recherche persistante (survit aux navigations) — sessionStorage 'lastSearchParams'
+homeSearchParams, updateHomeSearchParams
+// Compat héritée (plus de mode dev)
+isDevMode: false
 ```
 
-**Pourquoi `homeSearchParams` est dans le contexte** : `SearchPage` est démonté à chaque navigation (vers `/saved`, `/job/:id`, etc.). Stocker la recherche en état local la perdait à chaque remontage. Le contexte `AppProvider` (toujours monté) persiste ces paramètres sans ré-exécuter de recherche automatique.
+**Pourquoi `homeSearchParams` est dans le contexte** : `SearchPage` est démonté à chaque navigation (vers `/favoris`, `/job/:id`, etc.). Stocker la recherche en état local la perdait à chaque remontage. Le contexte `AppProvider` (toujours monté) persiste ces paramètres sans ré-exécuter de recherche automatique.
 
-### Multi-stack DevJobs (`useMultiStackJobs.js`)
+### Filtres par stack technologique (`useMultiStackJobs.js`)
 
-Sélectionner plusieurs stacks dans les filtres avancés déclenche **une requête API par stack** (max 150 résultats chacune), les résultats sont ensuite **combinés et dédupliqués par `job.id`** :
+Fonctionnalité conservée (indépendante de tout « mode »). Sélectionner plusieurs stacks dans les filtres avancés déclenche **une requête API par stack** (max 150 résultats chacune), combinées + dédupliquées par `job.id` :
 
 ```javascript
 // baseParams = searchParams sans keywords/stacks
@@ -308,11 +271,8 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 | Mobile | Flutter, Swift, Kotlin |
 | DevOps / Cloud | DevOps, Docker, AWS, Azure |
 
-### Comportement du formulaire en DevJobs
-
-- **Sans stack sélectionné :** si le champ mots-clés est vide → "développeur" utilisé comme fallback
-- **Avec stacks :** les stacks fournissent leurs propres mots-clés, le champ texte est ignoré
-- Les filtres de stacks sont **cachés en mode Classique** (`{isDevMode && ...}` dans `AdvancedSearchFields`)
+- **Avec stacks :** chaque stack fournit son propre mot-clé, le champ texte est ignoré.
+- **Sans stack :** recherche généraliste classique (aucun mot-clé imposé).
 
 ## Points d'implémentation notables
 
@@ -320,7 +280,6 @@ Retourne : `{ allJobs, total, totalsPerStack, isLoading, isFetching, isError, lo
 
 - `homeSearchParams` stocké dans `AppContext` (jamais démonté) + `sessionStorage` pour rechargement de page
 - `currentPage` et `pageSize` dans état local de `SearchPage`, initialisés depuis `sessionStorage`
-- Changement de mode (`isDevMode`) → reset de `homeSearchParams` via `useEffect` avec `prevIsDevMode` ref (évite le reset au montage initial)
 
 ### Pagination
 - `range` calculé dynamiquement : `"${page * pageSize}-${page * pageSize + pageSize - 1}"`
@@ -365,7 +324,7 @@ La fiche détail affiche toutes les informations disponibles dans l'API, organis
 |---------|----------------|
 | En-tête | intitule, entreprise (CompanyPopover), lieuTravail (+ lien carte), tags (contrat/exp/qualification/alternance/TH/handi/adapté/tension) |
 | Infos clés | Salaire (+ commentaire + compléments), Contrat, Durée (+ dates relatives), Postes (si >1), Déplacements, Secteur, Conditions (horaires, conditionExercice, contexteTravail, complementExercice) |
-| Description | HTML sanitisé |
+| Description | Texte échappé (`utils/sanitizeHtml.js` — anti-XSS) + sauts de ligne `<br />` |
 | Profil souhaité | Expérience (commentaire), Formations (niveauLibelle + domaineLibelle + commentaire + ExigenceBadge), Compétences (badges bleu=exigé/gris=souhaité), Qualités pro (+description), Outils bureautiques, Langues + Permis |
 | Employeur | description + lien site |
 | Contact | nom, téléphone, courriel, commentaire (URLs cliquables) |
@@ -380,12 +339,12 @@ La fiche détail affiche toutes les informations disponibles dans l'API, organis
 
 Le composant `MetierAutocomplete` est maintenant dans la section **Filtres avancés** (pas dans la zone principale) :
 - Label : "Métier précis (Code ROME) — Recherche ultra-ciblée"
-- Placeholder adapté au mode (DevJobs vs Classique)
+- Placeholder généraliste (ex. « Développeur, infirmier, comptable… »)
 - Confirmation : chip compact `Développeur web · M1805 · ciblage exact`
 - Sans emojis, icônes SVG cohérentes avec le reste du formulaire
 - Le badge de compteur sur "Filtres avancés" inclut `selectedMetier`
 
-### Recherche multi-stack (DevJobs)
+### Recherche multi-stack
 - Bascule vers `useMultiStackJobs` quand `stacks.length > 0` dans searchParams
 - Une requête par stack (150 résultats max chacune) via `useQueries`
 - Résultats combinés et dédupliqués par `job.id` côté client
@@ -447,7 +406,6 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 150];
 | Paris renvoie 75056 | Code global vs arrondissements | Transformation auto vers 75101, suggestion d'arrondissements |
 | `distance: '0'` ignoré | `'0'` est falsy | Comparaison explicite `!== undefined && !== ''` dans `SearchForm/index.js`, `api.js`, `server.js` |
 | Recherche perdue à la navigation | `SearchPage` démonté → état local perdu | `homeSearchParams` stocké dans `AppContext` (jamais démonté) |
-| Reset au montage du `useEffect([isDevMode])` | Effect s'exécute toujours au premier rendu | `prevIsDevMode = useRef(isDevMode)` — ne reset que sur un vrai changement |
 | `formations[].niveauFormationLibelle` undefined | Mauvais nom de champ | Le champ réel est `niveauLibelle` |
 | Bouton Contact présent mais inactif | Modal uniquement dans `isDetailed`, non rendu dans la carte | Modal rendu dans le chemin non-détaillé aussi (Fragment `<>`) |
 | Bouton Contact affiché sans info utile | `resolveApplyMode` retournait `'info'` en dernier recours même si `contact` était vide | `'info'` uniquement si `contact.nom \|\| contact.commentaire`, sinon `'none'` |
@@ -460,19 +418,31 @@ npm run dev          # Frontend (3000) + Backend (4059) en parallèle
 npm start            # Frontend uniquement
 npm run server       # Backend uniquement (hot reload)
 npm run build        # Build de production
+npm run test:ci      # Tests frontend (Jest/CRA, une passe)
+npm run test:server  # Tests backend (runner natif node:test — insee…)
+npm run test:all     # Les deux (exécuté par la CI avant le build)
 ```
 
 ## Sécurité
 
-- CORS configuré avec whitelist d'origines
-- Credentials API stockés uniquement côté serveur (jamais exposés au frontend)
-- Token OAuth2 mis en cache côté serveur, renouvelé automatiquement
-- Validation des entrées utilisateur côté client (longueur mots-clés, etc.)
+- **`helmet`** : en-têtes de sécurité sur toutes les réponses (CSP désactivée car Express sert aussi le SPA ; CORP en cross-origin car l'API est sur un autre sous-domaine).
+- **`express-rate-limit`** sur `/api` : défense principale contre l'épuisement des quotas tiers (le SPA public ne peut pas authentifier un vrai utilisateur sans login). Défaut 100 req/min/IP, réglable via `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS`. `app.set('trust proxy', 1)` pour compter la vraie IP derrière Traefik/Cloudflare.
+- **Limite de taille des corps** (`express.json({ limit: '100kb' })`).
+- **`API_SHARED_KEY`** (optionnel, no-op si absent) : si défini, `/api/*` exige l'en-tête `x-api-key` (sauf `/health` et `*/config`). Utile seulement derrière un client non public — inutile pour protéger le SPA public (une clé dans le bundle React est lisible par tous).
+- **Timeouts** sur tous les appels HTTP sortants (front : `API.TIMEOUT` ; serveur : `FT_TIMEOUT_MS`, INSEE 8 s, geo 10 s) → plus de requêtes qui pendent.
+- **Anti-XSS** : la description d'offre (contenu employeur, non maîtrisé) est **échappée** avant injection via `dangerouslySetInnerHTML` (`src/utils/sanitizeHtml.js`) — pas seulement `\n → <br/>`.
+- **Error Boundary** global (`src/components/ErrorBoundary.js`) : une exception de rendu affiche un écran de repli au lieu d'un écran blanc.
+- CORS configuré avec whitelist d'origines ; credentials API stockés uniquement côté serveur (jamais exposés au frontend) ; token OAuth2 en cache serveur, renouvelé automatiquement.
+- Validation des entrées utilisateur côté client (longueur mots-clés, etc.).
+
+> ⚠️ **Limite assumée** : l'API reste un proxy sans authentification par utilisateur
+> (le front est un SPA statique public). Le rate-limit + CORS limitent les abus mais
+> ne les éliminent pas. Une vraie protection nécessiterait un login — hors périmètre.
 
 ## Performance
 
 - React Query : cache des requêtes (`staleTime: 5 min`)
-- `useQueries` : requêtes parallèles en mode filtre salaire et en mode multi-stack DevJobs
+- `useQueries` : requêtes parallèles en mode filtre salaire et en multi-stack
 - Multi-stack : jusqu'à N×150 offres récupérées en parallèle, dédupliquées en O(n) via `Set`
 - En production, **Express sert le build React** (front + API sur le même conteneur, routé par Traefik) — plus de Nginx.
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API } from '../utils/constants';
 
 // Service pour la géolocalisation via le navigateur et la recherche de commune par coordonnées
 
@@ -59,7 +60,8 @@ export const findCommuneByCoordinates = async (latitude, longitude) => {
         lon: longitude,
         fields: 'nom,code,codesPostaux,population',
         format: 'json'
-      }
+      },
+      timeout: API.TIMEOUT,
     });
 
     if (response.data && response.data.length > 0) {

@@ -6,6 +6,7 @@ import { API, STORAGE_KEYS } from '../utils/constants';
  */
 const apiClient = axios.create({
   baseURL: API.BASE_URL,
+  timeout: API.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

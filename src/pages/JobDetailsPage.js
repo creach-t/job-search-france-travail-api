@@ -5,6 +5,7 @@ import ApplyButton from '../components/JobCard/ApplyButton';
 import CompanyPopover from '../components/ui/CompanyPopover';
 import InseeCompanyInfo from '../components/ui/InseeCompanyInfo';
 import { formatSalaryToMonthly } from '../utils/salaryUtils';
+import { textToSafeHtml } from '../utils/sanitizeHtml';
 import { useAppContext } from '../context/AppContext';
 
 const extractUrl = (text) => {
@@ -356,7 +357,7 @@ const JobDetailsPage = () => {
           <SectionTitle>Description du poste</SectionTitle>
           <div
             className="prose prose-sm max-w-none text-ink-muted leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: job.description?.replace(/\n/g, '<br />') || 'Aucune description disponible' }}
+            dangerouslySetInnerHTML={{ __html: textToSafeHtml(job.description, 'Aucune description disponible') }}
           />
         </div>
 

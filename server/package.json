@@ -1,0 +1,19 @@
+{
+  "name": "job-search-france-travail-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dépendances runtime du serveur Express (proxy France Travail). Séparées du package.json racine pour que l'image Docker n'embarque PAS React & co : le front est pré-buildé par la CI et copié dans /build.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"**/*.test.js\""
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^7.2.0"
+  }
+}
