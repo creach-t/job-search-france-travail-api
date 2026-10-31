@@ -213,10 +213,11 @@ const CommandBar = () => {
     ? 'Métier, mot-clé ou ville…'
     : (!commune ? 'Ajouter une ville…' : (!(metier || keyword) ? 'Ajouter un métier ou mot-clé…' : 'Affiner la recherche…'));
 
-  // Bulles d'invitation « faire préciser » : proposées une fois la recherche lancée.
+  // Bulles d'invitation « faire préciser » : affichées DANS la barre (pas sous elle),
+  // une fois la recherche lancée et tant que le champ texte est vide.
   const needPoste = !metier && !keyword;
   const needLieu = !commune;
-  const showRefine = onSearchRoute && searchActive && !suggestOpen && (needPoste || needLieu);
+  const showRefine = onSearchRoute && searchActive && !text.trim() && (needPoste || needLieu);
 
   const selectCls = 'glass-input w-full h-9 rounded-lg px-2.5 text-sm text-ink';
 
@@ -253,6 +254,14 @@ const CommandBar = () => {
                 </span>
               )}
 
+              {/* Invitations à préciser — directement DANS la barre, après les chips */}
+              {showRefine && (
+                <span className="inline-flex items-center gap-1.5 shrink-0">
+                  {needPoste && <RefinePill icon={BriefcaseIcon} label="un métier" onClick={startRefine} />}
+                  {needLieu && <RefinePill icon={MapPinIcon} label="un lieu" onClick={startRefine} />}
+                </span>
+              )}
+
               <input
                 ref={inputRef} type="text" value={text}
                 onChange={(e) => { setText(e.target.value); setSuggestOpen(true); }}
@@ -270,15 +279,6 @@ const CommandBar = () => {
                 </button>
               )}
             </div>
-
-            {/* Invitations à préciser (la recherche est déjà lancée) */}
-            {showRefine && (
-              <div className="flex items-center gap-1.5 mt-1.5 pl-1">
-                <span className="text-[11px] text-ink-faint">Préciser :</span>
-                {needPoste && <RefinePill icon={BriefcaseIcon} label="un métier" onClick={startRefine} />}
-                {needLieu && <RefinePill icon={MapPinIcon} label="un lieu" onClick={startRefine} />}
-              </div>
-            )}
 
             {/* Suggestions */}
             {suggestOpen && text.trim().length >= 2 && hasSuggestions && (
