@@ -1,27 +1,26 @@
 /**
- * Utilitaires pour la gestion et la conversion des salaires
- * Format de l'API France Travail : "Horaire de X Euros à Y Euros sur N mois"
- *                                   "Mensuel de X Euros à Y Euros sur N mois"
- *                                   "Annuel de X Euros à Y Euros sur N mois"
+ * Utilitaires de salaire — parsing + normalisation vers le MENSUEL brut.
+ *
+ * Format réel France Travail / Adzuna (vérifié sur données de production) :
+ *   "<Période> de X Euros [à Y Euros] [- commentaire libre]"
+ *   ex. "Mensuel de 2600.0 Euros à 3000.0 Euros", "Annuel de 45000.0 Euros",
+ *       "Horaire de 12.31 Euros - 13ème mois".
+ * Le libellé ne contient PAS « sur N mois » (c'était une hypothèse erronée).
+ *
+ * Deux principes pour rester cohérent :
+ *  1. On lit les DEUX bornes (min/max), jamais seulement la plus basse.
+ *  2. La périodicité réelle est décidée UNE fois sur la borne haute, puis
+ *     appliquée aux deux bornes → une fourchette ne peut pas mélanger
+ *     « mensuel fiable » et « annuel mal étiqueté ».
  */
 
-// Fiabilité d'un montant étiqueté « Mensuel » (France Travail / employeurs se
-// trompent souvent de périodicité). Trois cas :
-//  - ≤ 10 000 € : mensuel plausible → on fait confiance.
-//  - ≥ 18 000 € : clairement un ANNUEL mal étiqueté (ex. « Mensuel de 25000 à 30000 ») → ÷12.
-//  - entre les deux : ni mensuel (irréaliste) ni annuel (÷12 sous le SMIC) plausible
-//    → donnée corrompue (ex. « Mensuel de 11100 à 14100 ») → salaire ignoré.
-const TRUST_MONTHLY_MAX = 10000;
-const ANNUAL_MISLABEL_MIN = 18000;
+// Seuils (France Travail & employeurs confondent souvent la périodicité).
+const TRUST_MONTHLY_MAX = 10000;    // ≤ : mensuel plausible → on fait confiance
+const ANNUAL_MISLABEL_MIN = 18000;  // ≥ : « Mensuel » en réalité annuel → ÷12
+const MONTHS = 12;
+const HOURLY_TO_MONTHLY = 151.67;   // 35 h × 52 / 12
 
-// Résout un montant « mensuel » déclaré en valeur mensuelle fiable, ou null si corrompu.
-const resolveDeclaredMonthly = (montant) => {
-  if (montant <= TRUST_MONTHLY_MAX) return Math.round(montant);
-  if (montant >= ANNUAL_MISLABEL_MIN) return Math.round(montant / 12);
-  return null;
-};
-
-// Détecte la période salariale dans un texte (word boundaries pour éviter les faux positifs)
+// Détecte la période (word boundaries pour éviter les faux positifs : "dans", "plan"…).
 const detectPeriod = (text) => {
   if (/horaire|\/h\b|€\/h|\bh\b/.test(text)) return 'hourly';
   if (/\ban\b|annuel|\/an\b/.test(text)) return 'annual';
@@ -29,114 +28,116 @@ const detectPeriod = (text) => {
   return null;
 };
 
-// Extrait le premier montant numérique avec décimales (gère "14.55", "24 000", "24000.0")
-const extractAmount = (text) => {
-  const match = text.match(/(\d[\d\s]*\d|\d+)(?:[.,]\d+)?/);
-  if (!match) return null;
-  // Récupérer aussi la partie décimale
-  const fullMatch = text.match(/(\d[\d\s]*\d|\d+)([.,]\d+)?/);
-  if (!fullMatch) return null;
-  const integer = parseInt(fullMatch[1].replace(/\s/g, ''), 10);
-  const decimal = fullMatch[2] ? parseFloat('0' + fullMatch[2].replace(',', '.')) : 0;
-  return integer + decimal;
+// Parse "2 600,50" / "2600.0" / "24 000" → nombre (espaces = milliers, ./, = décimale).
+const toNumber = (s) => {
+  if (s == null) return null;
+  const n = parseFloat(String(s).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
 };
 
-// Extrait le montant du pattern "X Euros sur N mois" UNIQUEMENT si ce n'est pas un taux horaire
-// → retourne le montant mensuel (X / N si X est un total annuel, ou X si déjà mensuel)
-const extractSurNMois = (text, period) => {
-  // Ne pas appliquer ce pattern sur les taux horaires (ex: "14.55 Euros sur 12 mois" = horaire)
-  if (period === 'hourly') return null;
+const NUM = '(\\d[\\d\\s]*(?:[.,]\\d+)?)';
 
-  // Pattern: "de X[.xx] Euros [à Y Euros] sur N mois"
-  const match = text.match(/de\s+(\d[\d\s]*(?:[.,]\d+)?)\s*euros?\s+(?:\u00e0\s+[\d\s.,]+\s*euros?\s+)?sur\s+(\d+(?:[.,]\d+)?)\s*mois/i);
-  if (!match) return null;
+// Isole la partie structurée "<Période> de X Euros [à Y Euros]" en coupant le
+// commentaire libre introduit par " - ". Ce commentaire contient très souvent
+// "annuel"/"annuelle", "13ème mois" ou "un an" → sans cette coupe, la période
+// bascule à tort et un salaire mensuel se retrouve divisé par 12.
+// (ex. "Mensuel de 2600 à 3000 Euros - ... Indemnitaire Annuel)" ⇒ 217 € au lieu de 2600.)
+const structuredPart = (text) => text.split(/\s[-–]\s/)[0];
 
-  const montant = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
-  const nbMois = parseFloat(match[2].replace(',', '.'));
-  if (!nbMois || !montant) return null;
-
-  if (period === 'annual') {
-    // "Annuel de 30000 Euros sur 12 mois" → 2500 €/mois
-    return Math.round(montant / nbMois);
-  } else {
-    // monthly ou sans période : heuristique sur la valeur
-    // L'API FT écrit "Mensuel de 24000 Euros sur 12 mois" = 24000/12 = 2000 €/mois
-    // mais aussi "Mensuel de 2300 Euros sur 12 mois" = 2300 €/mois directement
-    // Heuristique : si montant >= 5000 et nbMois >= 1, c'est un total à diviser
-    if (montant >= 5000 && nbMois >= 1) return Math.round(montant / nbMois);
-    return montant; // déjà mensuel
+// Extrait [min, max] depuis "de X Euros [à Y Euros]".
+// À défaut (ex. commentaire "à partir de 2 200 € brut"), retombe sur le 1er nombre.
+const extractBounds = (text) => {
+  const re = new RegExp(`de\\s+${NUM}\\s*euros?(?:\\s*à\\s*${NUM}\\s*euros?)?`, 'i');
+  const m = text.match(re);
+  if (m) {
+    const lo = toNumber(m[1]);
+    if (lo == null) return null;
+    const hi = toNumber(m[2]);
+    return [lo, hi == null ? lo : hi];
   }
+  const f = text.match(new RegExp(NUM));
+  const v = f ? toNumber(f[1]) : null;
+  return v == null ? null : [v, v];
 };
 
-export const formatSalaryToMonthly = (salaire) => {
-  if (!salaire) return 'Salaire non précisé';
-
-  const salaireText = (salaire.libelle || salaire.commentaire || '').toLowerCase();
-  if (!salaireText.trim()) return 'Salaire non précisé';
-
-  // Détection de la période en priorité
-  const period = detectPeriod(salaireText);
-
-  // Pattern "de X Euros sur N mois" (format typique API FT) — sauf si horaire
-  const surNMois = extractSurNMois(salaireText, period);
-  if (surNMois !== null) {
-    return `${Math.round(surNMois).toLocaleString('fr-FR')} € / mois brut`;
+// Convertit une paire de montants bruts en fourchette MENSUELLE (floats, non arrondis).
+// → tableau [minMensuel, maxMensuel], 'ambiguous' (donnée corrompue), ou null.
+const toMonthlyRange = (lo, hi, period) => {
+  const scale = (f) => [lo * f, hi * f];
+  if (period === 'hourly') return scale(HOURLY_TO_MONTHLY);
+  if (period === 'annual') return scale(1 / MONTHS);
+  if (period === 'monthly') {
+    // Décision sur la borne haute, appliquée aux deux bornes (cohérence de la fourchette).
+    if (hi >= ANNUAL_MISLABEL_MIN) return scale(1 / MONTHS); // annuel mal étiqueté
+    if (hi <= TRUST_MONTHLY_MAX) return [lo, hi];            // mensuel fiable
+    return 'ambiguous';                                       // 10000–18000 : ni l'un ni l'autre
   }
-
-  const montant = extractAmount(salaireText);
-  if (montant === null || montant === 0) return salaire.libelle || 'Salaire non précisé';
-
-  let montantMensuel;
-
-  if (period === 'hourly') {
-    montantMensuel = Math.round(montant * 151.67); // 35h × 52/12 semaines
-  } else if (period === 'annual') {
-    montantMensuel = Math.round(montant / 12);
-  } else if (period === 'monthly') {
-    montantMensuel = resolveDeclaredMonthly(montant);
-    if (montantMensuel === null) return 'Salaire non précisé'; // donnée corrompue
-  } else {
-    // Heuristique basée sur la valeur
-    if (montant < 100) {
-      montantMensuel = Math.round(montant * 151.67); // horaire
-    } else if (montant >= 10000) {
-      montantMensuel = Math.round(montant / 12); // annuel
-    } else {
-      montantMensuel = Math.round(montant); // mensuel
-    }
-  }
-
-  return `${montantMensuel.toLocaleString('fr-FR')} € / mois brut`;
+  // Période inconnue : heuristique sur la borne haute.
+  if (hi < 100) return scale(HOURLY_TO_MONTHLY);
+  if (hi >= TRUST_MONTHLY_MAX) return scale(1 / MONTHS);
+  return [lo, hi];
 };
 
 /**
- * Convertit un salaire en annuel pour les comparaisons (filtre salaire minimum)
+ * Parse un objet salaire France Travail / Adzuna.
+ * @returns {{min:number,max:number}|{ambiguous:true}|null}
+ *   - {min,max} : fourchette MENSUELLE en euros (floats) ;
+ *   - {ambiguous} : montant trouvé mais périodicité indécidable → à masquer ;
+ *   - null : aucun montant exploitable.
+ *
+ * ⚠️ On ne lit QUE le `libelle` structuré ("<Période> de X Euros…"), jamais le
+ * `commentaire` libre. Le commentaire ("Salaire CCN 51", "13ème mois",
+ * "Selon profil"…) produisait des montants aberrants (ex. 7 735 €/mois à partir
+ * de « CCN 51 », 13 €/mois à partir de « 13ème mois »). Les offres sans libelle
+ * sont « non précisé » — la donnée brute reste visible sur la fiche.
+ */
+const parseSalary = (salaire) => {
+  if (!salaire) return null;
+  const text = structuredPart((salaire.libelle || '').toLowerCase());
+  if (!text.trim()) return null;
+
+  const bounds = extractBounds(text);
+  if (!bounds) return null;
+
+  const range = toMonthlyRange(bounds[0], bounds[1], detectPeriod(text));
+  if (range === 'ambiguous') return { ambiguous: true };
+  if (!range) return null;
+
+  let [min, max] = range;
+  if (!(min > 0)) return null;
+  if (!(max >= min)) max = min;
+  return { min, max };
+};
+
+/**
+ * Libellé mensuel lisible. Affiche la FOURCHETTE quand min ≠ max.
+ * @returns {string} ex. "2 083 € / mois brut" ou "3 750 – 4 583 € / mois brut".
+ */
+export const formatSalaryToMonthly = (salaire) => {
+  if (!salaire) return 'Salaire non précisé';
+  const r = parseSalary(salaire);
+
+  if (r && r.min != null) {
+    const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+    return Math.round(r.min) === Math.round(r.max)
+      ? `${fmt(r.min)} € / mois brut`
+      : `${fmt(r.min)} – ${fmt(r.max)} € / mois brut`;
+  }
+  // Donnée ambiguë → on ne montre pas un chiffre trompeur.
+  if (r && r.ambiguous) return 'Salaire non précisé';
+  // Aucun montant parsé mais texte présent (ex. "Selon profil") → on garde le texte brut.
+  const raw = (salaire.libelle || '').trim();
+  return raw || 'Salaire non précisé';
+};
+
+/**
+ * Équivalent ANNUEL brut pour les comparaisons (filtre « salaire minimum », tri, analyse).
+ * Calé sur la borne basse (plancher garanti) et annualisé depuis le float mensuel
+ * pour éviter toute dérive d'arrondi.
+ * @returns {number|null}
  */
 export const convertToAnnualSalary = (salaire) => {
-  if (!salaire) return null;
-
-  const salaireText = (salaire.libelle || salaire.commentaire || '').toLowerCase();
-  if (!salaireText.trim()) return null;
-
-  const period = detectPeriod(salaireText);
-
-  // Pattern "de X Euros sur N mois" — sauf si horaire
-  const surNMois = extractSurNMois(salaireText, period);
-  if (surNMois !== null) return Math.round(surNMois) * 12;
-
-  const montant = extractAmount(salaireText);
-  if (montant === null || montant === 0) return null;
-
-  if (period === 'hourly') return Math.round(montant * 1820); // 35h × 52 semaines
-  if (period === 'monthly') {
-    if (montant <= TRUST_MONTHLY_MAX) return Math.round(montant * 12);
-    if (montant >= ANNUAL_MISLABEL_MIN) return Math.round(montant); // annuel mal étiqueté
-    return null; // 10000–18000 : donnée corrompue → inconnu
-  }
-  if (period === 'annual') return Math.round(montant);
-
-  // Heuristique
-  if (montant < 100) return Math.round(montant * 1820);
-  if (montant >= 10000) return Math.round(montant);
-  return Math.round(montant * 12);
+  const r = parseSalary(salaire);
+  if (!r || r.min == null) return null;
+  return Math.round(r.min * MONTHS);
 };

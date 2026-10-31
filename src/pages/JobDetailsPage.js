@@ -249,17 +249,25 @@ const JobDetailsPage = () => {
             <span className={`font-medium ${hasSalary ? 'text-green-700' : 'text-ink-faint'}`}>
               {salary}
             </span>
-            {job.salaire?.libelle && hasSalary && (
-              <p className="mt-0.5 text-xs text-ink-faint">{job.salaire.libelle}</p>
-            )}
-            {job.salaire?.commentaire && (
-              <p className="mt-0.5 text-xs text-ink-muted italic">{job.salaire.commentaire}</p>
-            )}
-            {(job.salaire?.complement1 || job.salaire?.complement2) && (
-              <ul className="mt-1 space-y-0.5 text-xs text-ink-muted list-disc list-inside">
-                {job.salaire.complement1 && <li>{job.salaire.complement1}</li>}
-                {job.salaire.complement2 && <li>{job.salaire.complement2}</li>}
-              </ul>
+            {/* Donnée brute France Travail — toujours affichée (y compris quand
+                l'estimation est « non précisé »), pour voir la source exacte. */}
+            {(job.salaire?.libelle || job.salaire?.commentaire
+              || job.salaire?.complement1 || job.salaire?.complement2) && (
+              <div className="mt-1.5 rounded-lg bg-[var(--glass-hover)] px-2.5 py-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Donnée brute (France Travail)</p>
+                {job.salaire?.libelle && (
+                  <p className="mt-0.5 text-xs text-ink-muted">{job.salaire.libelle}</p>
+                )}
+                {job.salaire?.commentaire && (
+                  <p className="mt-0.5 text-xs text-ink-muted italic">{job.salaire.commentaire}</p>
+                )}
+                {(job.salaire?.complement1 || job.salaire?.complement2) && (
+                  <ul className="mt-1 space-y-0.5 text-xs text-ink-muted list-disc list-inside">
+                    {job.salaire.complement1 && <li>{job.salaire.complement1}</li>}
+                    {job.salaire.complement2 && <li>{job.salaire.complement2}</li>}
+                  </ul>
+                )}
+              </div>
             )}
           </InfoRow>
 

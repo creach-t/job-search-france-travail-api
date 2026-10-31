@@ -42,7 +42,11 @@ export const useUnifiedJobs = (searchParams) => {
 
   // Fusion + filtre salaire client
   const jobs = useMemo(() => {
-    let merged = mergeOffers([ftJobs, adz.adzunaJobs]); // FT prioritaire sur doublon
+    // Rang de pertinence = ordre d'arrivée (FT en tri pertinence par défaut, puis Adzuna).
+    // mergeOffers trie ensuite par date, mais `__rank` est conservé pour le tri « Pertinence ».
+    const ftRanked = ftJobs.map((o, i) => ({ ...o, __rank: i }));
+    const azRanked = adz.adzunaJobs.map((o, i) => ({ ...o, __rank: ftJobs.length + i }));
+    let merged = mergeOffers([ftRanked, azRanked]); // FT prioritaire sur doublon
     if (salaryMin) {
       merged = merged.filter((o) => {
         const annual = convertToAnnualSalary(o.salaire);

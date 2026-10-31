@@ -7,12 +7,7 @@ import { PAGE_SIZE_OPTIONS } from '../../utils/constants';
 import { SOURCES, getSourceMeta } from '../../domain/offer';
 import { offerScore } from '../../domain/offerScore';
 import { convertToAnnualSalary } from '../../utils/salaryUtils';
-
-const SORT_OPTIONS = [
-  { value: 'details', label: 'Offres les plus détaillées' },
-  { value: 'date', label: 'Plus récentes' },
-  { value: 'salary', label: 'Salaire décroissant' },
-];
+import { haversineKm } from '../../utils/geoProjection';
 
 // ─── Barre de contrôle (pagination + taille de page) ───────────────────────
 const ResultsBar = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange, showingFrom, showingTo, total, isFetching }) => {
@@ -130,6 +125,28 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | source key
   const [sort, setSort] = useState('details');             // tri par défaut : richesse d'infos
 
+  // Centre de référence pour le tri « les plus proches » = coordonnées de la ville recherchée
+  const center = useMemo(() => {
+    const lat = Number(searchParams?.locationLat);
+    const lon = Number(searchParams?.locationLon);
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+  }, [searchParams]);
+
+  // Options de tri (« Les plus proches » seulement si une ville géolocalisée est choisie)
+  const sortOptions = useMemo(() => {
+    const opts = [
+      { value: 'details', label: 'Offres les plus détaillées' },
+      { value: 'relevance', label: 'Pertinence' },
+      { value: 'date', label: 'Plus récentes' },
+      { value: 'salary', label: 'Salaire décroissant' },
+    ];
+    if (center) opts.splice(1, 0, { value: 'distance', label: 'Les plus proches' });
+    return opts;
+  }, [center]);
+
+  // Tri effectif : retombe sur « détaillées » si l'option courante n'est plus disponible
+  const effectiveSort = sortOptions.some((o) => o.value === sort) ? sort : 'details';
+
   // Réinitialise le filtre de source quand la recherche change
   const paramsKey = useMemo(() => JSON.stringify(searchParams || {}), [searchParams]);
   useEffect(() => { setSourceFilter('all'); }, [paramsKey]);
@@ -138,20 +155,25 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
     sourceFilter === 'all' ? unified.jobs : unified.jobs.filter((j) => j.source === sourceFilter)
   ), [unified.jobs, sourceFilter]);
 
-  // Tri intelligent : par complétude (défaut), date, ou salaire — date en départage
+  // Tri : complétude (défaut), pertinence, distance, date ou salaire — date en départage
   const sorted = useMemo(() => {
     const dt = (o) => (o.dateCreation ? Date.parse(o.dateCreation) : -Infinity);
     const list = [...filtered];
-    if (sort === 'date') {
+    if (effectiveSort === 'date') {
       list.sort((a, b) => dt(b) - dt(a));
-    } else if (sort === 'salary') {
+    } else if (effectiveSort === 'salary') {
       const sal = (o) => convertToAnnualSalary(o.salaire) ?? -Infinity;
       list.sort((a, b) => (sal(b) - sal(a)) || (dt(b) - dt(a)));
+    } else if (effectiveSort === 'relevance') {
+      list.sort((a, b) => (a.__rank ?? Infinity) - (b.__rank ?? Infinity));
+    } else if (effectiveSort === 'distance' && center) {
+      const dist = (o) => haversineKm(center.lat, center.lon, o.lieuTravail?.latitude, o.lieuTravail?.longitude);
+      list.sort((a, b) => (dist(a) - dist(b)) || (dt(b) - dt(a)));
     } else {
       list.sort((a, b) => (offerScore(b) - offerScore(a)) || (dt(b) - dt(a)));
     }
     return list;
-  }, [filtered, sort]);
+  }, [filtered, effectiveSort, center]);
 
   const changeSort = (v) => { setSort(v); onPageChange(0); };
 
@@ -212,11 +234,11 @@ const ResultsTab = ({ searchParams, currentPage, pageSize, onPageChange, onPageS
           <span className="text-xs text-ink-faint hidden sm:inline">Trier</span>
           <div className="relative">
             <select
-              value={sort}
+              value={effectiveSort}
               onChange={(e) => changeSort(e.target.value)}
               className="glass-input h-8 pl-2.5 pr-7 rounded-lg text-sm font-medium text-ink appearance-none cursor-pointer"
             >
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
               <svg className="h-3 w-3 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor">

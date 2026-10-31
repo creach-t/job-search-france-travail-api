@@ -15,6 +15,9 @@
 ### Architecture actuelle (recherche-centrée)
 
 - **Accueil (`/`) = la recherche.** Une **barre de commande unique** (`components/AppShell/CommandBar.js`) pilote tout : recherche intelligente à chips (métiers ROME + villes en autocomplétion), filtres en popover, et les **onglets Résultats · Analyse · Carte** qui partagent la même recherche (`homeSearchParams`). Plus de sidebar desktop, plus de formulaire séparé (`SearchForm/index.js` remplacé — seuls `options.js` et `MetierAutocomplete.js` sont réutilisés).
+  - **Recherche live** : valider/retirer une chip (ou un filtre) relance la recherche automatiquement (debounce, gardé par `userTouchedRef` + signature pour éviter les boucles/relances inutiles) ; plus de bouton obligatoire.
+  - **Suggestions ordonnées** : si la frappe ressemble à un lieu (une commune dont le nom commence par la frappe → `placeLikely`), les **villes** passent en premier et le bloc **métiers (ROME)** en bas ; sinon l'inverse. Côté serveur, `/api/rome/metiers` classe les **noms de métiers** d'abord (préfixe > début de mot > contient) et relègue les correspondances par **code ROME** seul en bas. Le code ROME est un petit badge discret à droite du nom.
+  - **Coordonnées de la ville** : `/api/communes/search` renvoie `lat`/`lon` (champ geo `centre`) ; la chip ville les conserve dans `homeSearchParams.locationLat/Lon` → active le tri « Les plus proches ».
 - **Carte de clusters = SVG maison, sans API/tuiles externes** : `components/search/map/FranceClusterMap.js` + `utils/geoProjection.js` (projection sans d3) + GeoJSON départements embarqué (`src/assets/france-departements.json`). Bulles verre à effet « goutte » (filtre métaballes `#goo`), zoom/pan throttlé (rAF), layers mémoïsés. **Leaflet retiré des imports.**
 - **Analyse condensée** en grille bento de cartes dépliables, graphes variés (donut, fourchette salariale, rythme hebdo) : `components/search/AnalysisTab.js`.
 - **Glassmorphism réaliste** (reflets spéculaires, grain, ombres multi-couches) : `src/index.css`.
@@ -85,9 +88,11 @@ Guide détaillé : `src/domain/README.md`. Côté serveur, même logique via
 (clé intitulé+entreprise, FT prioritaire) et **trie par date**. Les 3 onglets
 consomment ce flux :
 - **Résultats** : liste unique, pagination locale, **puces de filtre par source**
-  (Toutes / France Travail / Adzuna), badge `SourceBadge` par carte, et **tri**
-  (défaut « Offres les plus détaillées » via `domain/offerScore.js` — score de
-  complétude ; sinon Plus récentes / Salaire décroissant).
+  (Toutes / France Travail / Adzuna), badge `SourceBadge` par carte, et **tri** :
+  défaut « Offres les plus détaillées » (`domain/offerScore.js`), **Pertinence**
+  (ordre FT d'origine via `__rank` posé dans `useUnifiedJobs` avant fusion),
+  **Les plus proches** (haversine `utils/geoProjection.js` vers `searchParams.locationLat/Lon`
+  — n'apparaît que si une ville géolocalisée est choisie), Plus récentes, Salaire décroissant.
 - **Analyse** : `analyzeJobs` porte sur le combiné FT+Adzuna (dé-dupliqué).
 - **Carte** : clusters des offres des deux sources (Adzuna a lat/long).
 Les cartes d'offres externes (Adzuna) ouvrent leur page d'origine (pas de fiche
@@ -356,11 +361,12 @@ Le composant `MetierAutocomplete` est maintenant dans la section **Filtres avanc
 - Charge jusqu'à 8 pages en parallèle via `useQueries`, filtre côté client sur `convertToAnnualSalary()`
 
 ### Conversion de salaires (`salaryUtils.js`)
-- Normalise tout en €/mois brut
-- Format API : `"Mensuel/Horaire/Annuel de X Euros [à Y Euros] sur N mois"`
-- Détection de période avec word boundaries (`/\ban\b/`) pour éviter les faux positifs ("dans", "plan")
-- Heuristique : `montant >= 5000` en contexte mensuel → diviser par `nbMois` (FT encode le total annuel)
-- Conversion horaire → mensuel : `montant × 151.67`
+- Normalise tout en €/mois brut. Format réel (vérifié en prod) : `"<Période> de X Euros [à Y Euros] [- commentaire libre]"` — **pas de « sur N mois »** (ancienne hypothèse erronée, retirée).
+- **Parse UNIQUEMENT `salaire.libelle`** (le champ structuré), jamais `salaire.commentaire` (texte libre). Parser le commentaire produisait des montants aberrants : « Salaire CCN 51 » → 7 735 €/mois, « 13ème mois » → 13 €/mois, « … » → 10 010 €/mois. Les ~20 % d'offres sans libelle sont « Salaire non précisé » (la donnée brute reste visible sur la fiche, cf. JobDetailsPage).
+- **Coupe le commentaire libre** (`" - "`) AVANT de parser le libelle : sinon un « annuel/annuelle/un an/13ème mois » dans le texte libre fait basculer la période et divise par 12 un salaire mensuel (`"Mensuel de 2600 à 3000 € - …Indemnitaire Annuel)"` affichait **217–250 €**).
+- **Lit les deux bornes** (`de X à Y`) — l'affichage montre la **fourchette** `min – max` quand elles diffèrent, plus seulement le minimum.
+- **Décision de périodicité prise sur la borne haute**, appliquée aux deux bornes (une fourchette ne mélange jamais « mensuel fiable » et « annuel mal étiqueté »). Seuils « Mensuel » : `≤ 10000` fiable, `≥ 18000` = annuel mal étiqueté → ÷12, `10000–18000` = ambigu → `Salaire non précisé`.
+- Conversion horaire → mensuel : `montant × 151.67`. `convertToAnnualSalary` (filtre/tri/analyse) = borne basse × 12, annualisée depuis le float (pas de dérive d'arrondi).
 
 ### Bouton Postuler (`ApplyButton`) — ordre de priorité
 1. `urlPostulation` → lien direct

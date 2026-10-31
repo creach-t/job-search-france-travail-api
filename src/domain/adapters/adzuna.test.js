@@ -40,8 +40,8 @@ describe('adapter Adzuna', () => {
     const o = fromAdzuna(rawAdzuna);
     expect(convertToAnnualSalary(o.salaire)).toBe(45000);
     // toLocaleString('fr-FR') sépare les milliers par une espace fine insécable
-    // → on normalise les espaces avant comparaison.
-    expect(formatSalaryToMonthly(o.salaire).replace(/\s/g, ' ')).toBe('3 750 € / mois brut');
+    // → on normalise les espaces avant comparaison. Fourchette 45–55 k annuels.
+    expect(formatSalaryToMonthly(o.salaire).replace(/\s/g, ' ')).toBe('3 750 – 4 583 € / mois brut');
   });
 
   test('salaire mensuel détecté sous le seuil (2500 → mensuel, pas annuel)', () => {

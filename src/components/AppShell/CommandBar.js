@@ -81,7 +81,7 @@ const CommandBar = () => {
     }
     const p = homeSearchParams;
     setMetier(p.codeROME ? { code: p.codeROME, libelle: p.codeROMELabel || p.codeROME } : null);
-    setCommune(p.location ? { code: p.location, nom: p.locationLabel || 'Commune', codesPostaux: [] } : null);
+    setCommune(p.location ? { code: p.location, nom: p.locationLabel || 'Commune', lat: p.locationLat, lon: p.locationLon, codesPostaux: [] } : null);
     setKeyword(!p.codeROME && p.keywords ? p.keywords : '');
     setDistance(p.distance || '10');
     setFilters({
@@ -121,7 +121,15 @@ const CommandBar = () => {
     if (metier) { params.codeROME = metier.code; params.codeROMELabel = metier.libelle; }
     else if (keyword) params.keywords = keyword.trim().slice(0, 20);
 
-    if (commune) { params.location = commune.code; params.locationLabel = commune.nom; }
+    if (commune) {
+      params.location = commune.code;
+      params.locationLabel = commune.nom;
+      // Coordonnées (si connues) → activent le tri « les plus proches »
+      if (commune.lat != null && commune.lon != null) {
+        params.locationLat = commune.lat;
+        params.locationLon = commune.lon;
+      }
+    }
     if (filters.contractType) params.contractType = filters.contractType;
     if (filters.experience) params.experience = filters.experience;
     if (filters.qualification) params.qualification = filters.qualification;
@@ -193,6 +201,12 @@ const CommandBar = () => {
   const hasSuggestions = sugg.metiers.length > 0 || sugg.communes.length > 0 || text.trim().length >= 2;
   const searchActive = !!homeSearchParams;
   const hasChips = metier || commune || keyword;
+
+  // La frappe ressemble-t-elle à un LIEU ? (une commune dont le nom commence par la frappe)
+  // → on remonte les villes, et on relègue le bloc métiers (ROME) en bas.
+  const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const placeLikely = sugg.communes.length > 0
+    && sugg.communes.some((c) => norm(c.nom).startsWith(norm(text)));
 
   // Placeholder adaptatif : la barre guide vers la dimension encore manquante.
   const placeholder = !hasChips
@@ -274,31 +288,39 @@ const CommandBar = () => {
                   <MagnifyingGlassIcon className="h-4 w-4 text-ink-faint shrink-0" />
                   <span className="text-sm text-ink">Rechercher «&nbsp;<strong>{text.trim()}</strong>&nbsp;»</span>
                 </button>
-                {sugg.metiers.length > 0 && (
-                  <div className="mt-1">
-                    <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Métiers</p>
-                    {sugg.metiers.map((m) => (
-                      <button key={m.code} type="button" onClick={() => pickMetier(m)}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-[var(--glass-hover)] transition-colors">
-                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">{m.code}</span>
-                        <span className="text-sm text-ink truncate">{m.libelle}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {sugg.communes.length > 0 && (
-                  <div className="mt-1">
-                    <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Villes</p>
-                    {sugg.communes.map((c) => (
-                      <button key={c.code} type="button" onClick={() => pickCommune(c)}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-[var(--glass-hover)] transition-colors">
-                        <MapPinIcon className="h-4 w-4 text-cyan-300 shrink-0" />
-                        <span className="text-sm text-ink truncate">{c.nom}</span>
-                        {c.codesPostaux?.[0] && <span className="text-xs text-ink-faint ml-auto shrink-0">{c.codesPostaux[0]}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {/* Villes et métiers ordonnés selon ce que l'utilisateur tape :
+                    si la frappe ressemble à un lieu → villes d'abord, bloc métiers (ROME) en bas. */}
+                {(() => {
+                  const metiersBlock = sugg.metiers.length > 0 && (
+                    <div key="metiers" className="mt-1">
+                      <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Métiers</p>
+                      {sugg.metiers.map((m) => (
+                        <button key={m.code} type="button" onClick={() => pickMetier(m)}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-[var(--glass-hover)] transition-colors">
+                          <BriefcaseIcon className="h-4 w-4 text-accent shrink-0" />
+                          <span className="text-sm text-ink truncate">{m.libelle}</span>
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-ink-faint shrink-0 ml-auto">{m.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                  const villesBlock = sugg.communes.length > 0 && (
+                    <div key="villes" className="mt-1">
+                      <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Villes</p>
+                      {sugg.communes.map((c) => (
+                        <button key={c.code} type="button" onClick={() => pickCommune(c)}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-[var(--glass-hover)] transition-colors">
+                          <MapPinIcon className="h-4 w-4 text-cyan-300 shrink-0" />
+                          <span className="text-sm text-ink truncate">{c.nom}</span>
+                          {c.codesPostaux?.[0] && <span className="text-xs text-ink-faint ml-auto shrink-0">{c.codesPostaux[0]}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                  return placeLikely
+                    ? <>{villesBlock}{metiersBlock}</>
+                    : <>{metiersBlock}{villesBlock}</>;
+                })()}
                 {sugg.loading && <p className="px-2.5 py-2 text-xs text-ink-faint">Recherche…</p>}
               </div>
             )}

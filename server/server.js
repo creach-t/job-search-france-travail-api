@@ -329,7 +329,7 @@ app.get('/api/communes/search', async (req, res) => {
     if (!query || query.trim().length < 2) return res.json([]);
 
     const response = await axios.get(GEO_API_URL, {
-      params: { nom: query, fields: 'nom,code,codesPostaux,population', boost: 'population', limit },
+      params: { nom: query, fields: 'nom,code,codesPostaux,population,centre', boost: 'population', limit },
       timeout: 10000,
     });
 
@@ -363,11 +363,15 @@ app.get('/api/communes/search', async (req, res) => {
           code = '75101';
         }
       }
+      // centre.coordinates = [lon, lat] (GeoJSON) → exposé pour le tri « le plus proche »
+      const coords = commune.centre?.coordinates;
       return {
         code,
         nom: commune.nom,
         codesPostaux: commune.codesPostaux || [],
         population: commune.population,
+        lat: Array.isArray(coords) ? coords[1] : undefined,
+        lon: Array.isArray(coords) ? coords[0] : undefined,
       };
     });
 
@@ -463,11 +467,24 @@ app.get('/api/rome/metiers', authMiddleware, async (req, res) => {
 
   try {
     const searchTerm = normalizeString(query.trim());
-    const results = TOUS_LES_METIERS.filter((metier) => {
+    // Classement : on fait remonter les NOMS de métiers (le libellé commence par
+    // la frappe, puis début de mot, puis contient) ; les correspondances par CODE
+    // ROME uniquement (ex. « M1805 ») passent en bas de liste.
+    const scored = [];
+    for (const metier of TOUS_LES_METIERS) {
       const libelle = normalizeString(metier.libelle);
-      const code = metier.code.toLowerCase();
-      return libelle.includes(searchTerm) || code.includes(searchTerm);
-    }).slice(0, 20);
+      const inLib = libelle.includes(searchTerm);
+      const inCode = metier.code.toLowerCase().includes(searchTerm);
+      if (!inLib && !inCode) continue;
+      let score;
+      if (!inLib) score = 3;                                   // code ROME seul → en bas
+      else if (libelle.startsWith(searchTerm)) score = 0;      // nom commence par la frappe
+      else if (libelle.includes(` ${searchTerm}`)) score = 1;  // début d'un mot du nom
+      else score = 2;                                          // nom contient
+      scored.push({ metier, score });
+    }
+    scored.sort((a, b) => a.score - b.score || a.metier.libelle.length - b.metier.libelle.length);
+    const results = scored.slice(0, 20).map((s) => s.metier);
     res.json(results.length > 0 ? results : METIERS_POPULAIRES);
   } catch (error) {
     console.error('Erreur API ROME:', error.response?.data || error.message);

@@ -17,6 +17,22 @@
 const LAT_REF = 46.6; // centre approximatif de la France métropolitaine
 const K = Math.cos((LAT_REF * Math.PI) / 180); // ≈ 0.687 — compression en longitude
 
+/**
+ * Distance en km entre deux points (lat, lon) — formule de haversine.
+ * Sert au tri « les plus proches » (offre ↔ ville recherchée).
+ * @returns {number} distance en km, ou +Infinity si une coordonnée manque.
+ */
+export function haversineKm(lat1, lon1, lat2, lon2) {
+  if ([lat1, lon1, lat2, lon2].some((v) => v == null || Number.isNaN(Number(v)))) return Infinity;
+  const R = 6371;
+  const toRad = (d) => (Number(d) * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 // ── Emprise géographique d'un FeatureCollection ──────────────────────────────
 export function computeBounds(geojson) {
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
